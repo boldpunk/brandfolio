@@ -72,3 +72,16 @@ export function fitLogo(ratio: number, boxWidth: number, boxHeight: number, clea
   const height = Math.max(4, Math.min(maxHeight, boxWidth / (ratio + 2 * clearSpace), boxHeight / (1 + 2 * clearSpace)));
   return { width: height * ratio, height };
 }
+
+/**
+ * Scale for the cover title so that long titles stay on the cover: at most
+ * three lines and the longest word on one line. Glyph width is estimated at
+ * 0.62 em, which is on the safe side for the bundled sans and serif faces.
+ */
+export function coverTitleScale(text: string, baseScale: number, sizePx: number, widthPx: number): number {
+  const em = 0.62;
+  const longestWord = Math.max(1, ...text.split(/\s+/).map((w) => w.length));
+  const byWord = widthPx / (longestWord * em * sizePx);
+  const byLines = Math.sqrt((3 * widthPx) / (Math.max(1, text.length) * em * sizePx));
+  return Math.max(0.6, Math.min(baseScale, byWord, byLines));
+}

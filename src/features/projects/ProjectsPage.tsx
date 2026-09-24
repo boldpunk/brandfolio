@@ -1,7 +1,7 @@
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import { Archive, Copy, Eye, FolderOpen, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button, IconButton } from '@/components/ui/Button';
 import { useNotify } from '@/components/ui/Announcer';
 import { Dialog } from '@/components/ui/Dialog';
@@ -35,7 +35,12 @@ export default function ProjectsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const { projectSort } = useUiSettings();
-  const [creating, setCreating] = useState(false);
+  const [params, setParams] = useSearchParams();
+  // "Создать брендбук" on the home page links here with ?create=1.
+  const [creating, setCreating] = useState(() => params.get('create') === '1');
+  useEffect(() => {
+    if (params.has('create')) setParams({}, { replace: true });
+  }, [params, setParams]);
   const [toDelete, setToDelete] = useState<ProjectSummary | null>(null);
   const notify = useNotify();
   const navigate = useNavigate();

@@ -21,7 +21,7 @@ import {
   type Tokens,
 } from '@/features/brandbook/viewModel';
 import { softBreak } from '@/lib/softBreak';
-import { contentWidth, fitLogo, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
+import { contentWidth, coverTitleScale, fitLogo, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
 
 type Style = NonNullable<React.ComponentProps<typeof View>['style']>;
 type TextStyle = Exclude<Style, unknown[]>;
@@ -103,7 +103,9 @@ function SectionPage({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
     >
       {t.running && (
         <View fixed style={{ position: 'absolute', top: u(32), left: u(t.margin.left), right: u(t.margin.right), flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 0.75, borderBottomColor: tokens.text, paddingBottom: u(8) }}>
-          <Text style={type(tokens.type.caption)}>{s(ctx.vm.documentTitle)}</Text>
+          <Text style={{ ...type(tokens.type.caption), flex: 1, paddingRight: u(16), maxLines: 1, textOverflow: 'ellipsis' }}>
+            {ctx.vm.documentTitle}
+          </Text>
           <Text style={type(tokens.type.caption)}>
             {String(section.number).padStart(2, '0')} · {section.title}
           </Text>
@@ -166,7 +168,7 @@ function CoverPage({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { k
   const fg = t.cover === 'bleed' && !section.backgroundChosen ? readableOn(background, tokens) : section.foreground;
   const logo = logoForSurface(background, section.logo, null);
   const meta = [section.version && `Версия ${section.version}`, section.dateLabel, section.author].filter(Boolean) as string[];
-  const title = { ...type(tokens.type.heading, t.cover === 'bleed' ? 2.4 : 2), color: fg };
+  const title = { ...type(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, contentWidth(t))), color: fg };
   const pad = { paddingTop: u(t.margin.top), paddingRight: u(t.margin.right), paddingBottom: u(t.margin.bottom), paddingLeft: u(t.margin.left) };
   const page = { backgroundColor: background, color: fg, ...pad, ...type(tokens.type.body) };
 
@@ -174,8 +176,8 @@ function CoverPage({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { k
     return (
       <Page size="A4" style={{ ...page, flexDirection: 'column' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 0.75, borderBottomColor: fg, paddingBottom: u(8) }}>
-          <Text style={{ ...type(tokens.type.caption), color: fg }}>Брендбук</Text>
-          <Text style={{ ...type(tokens.type.caption), color: fg }}>{meta.join(' · ')}</Text>
+          <Text style={{ ...type(tokens.type.caption), color: fg, paddingRight: u(16) }}>Брендбук</Text>
+          <Text style={{ ...type(tokens.type.caption), color: fg, flex: 1, textAlign: 'right' }}>{s(meta.join(' · '))}</Text>
         </View>
         <View style={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', marginVertical: u(48), borderWidth: 0.75, borderColor: fg }}>
           <LogoImg asset={logo} images={images} height={180} maxWidth={320} />
@@ -232,15 +234,36 @@ function Para({ ctx, children, lead }: { ctx: Ctx; children: string; lead?: bool
   return <Text style={type(ctx.tokens.type.body, lead ? 1.25 : 1)}>{s(children)}</Text>;
 }
 
-function Bullets({ ctx, items, ordered }: { ctx: Ctx; items: string[]; ordered?: boolean }) {
+function bulletText(ctx: Ctx, item: string, i: number, ordered?: boolean) {
   return (
-    <View>
-      {items.map((item, i) => (
-        <View key={i} style={{ flexDirection: 'row', marginBottom: u(6) }} wrap={false}>
-          <Text style={{ ...type(ctx.tokens.type.body), width: u(22) }}>{ordered ? `${i + 1}.` : '•'}</Text>
-          <Text style={{ ...type(ctx.tokens.type.body), flex: 1 }}>{s(item)}</Text>
-        </View>
-      ))}
+    <Text key={i} style={{ ...type(ctx.tokens.type.body), marginBottom: u(6) }}>
+      {ordered ? `${i + 1}.\u00A0\u00A0` : '•\u00A0\u00A0'}
+      {s(item)}
+    </Text>
+  );
+}
+
+function Bullets({ ctx, items, ordered }: { ctx: Ctx; items: string[]; ordered?: boolean }) {
+  // One Text per item: react-pdf splits a row of separate marker and text
+  // boxes badly across pages (the marker stays behind, rows overlap).
+  return <View>{items.map((item, i) => bulletText(ctx, item, i, ordered))}</View>;
+}
+
+/**
+ * A labelled list that may run over several pages. The label is kept on the
+ * page of the first item (both in an unbreakable row); later items continue in
+ * the content column.
+ */
+function ListRow({ ctx, label, items, ordered }: { ctx: Ctx; label: string; items: string[]; ordered?: boolean }) {
+  const { t, tokens } = ctx;
+  const labelWidth = `${t.labelColumn * 100}%` as const;
+  return (
+    <View style={{ paddingVertical: u(20), borderTopWidth: 0.75, borderTopColor: tokens.muted }}>
+      <View wrap={false} style={{ flexDirection: 'row' }}>
+        <Text style={{ ...type(tokens.type.caption), fontWeight: 700, width: labelWidth, paddingRight: u(24), textTransform: t.id === 'studio' ? 'uppercase' : 'none' }}>{label}</Text>
+        <View style={{ flex: 1 }}>{bulletText(ctx, items[0] ?? '', 0, ordered)}</View>
+      </View>
+      {items.length > 1 && <View style={{ marginLeft: labelWidth }}>{items.slice(1).map((item, i) => bulletText(ctx, item, i + 1, ordered))}</View>}
     </View>
   );
 }
@@ -266,9 +289,7 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
             </Row>
           ))}
           {section.values.length > 0 && (
-            <Row ctx={ctx} label="Ценности">
-              <Bullets ctx={ctx} items={section.values} ordered />
-            </Row>
+            <ListRow ctx={ctx} label="Ценности" items={section.values} ordered />
           )}
         </View>
       );
@@ -338,9 +359,7 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
             </View>
           )}
           {section.rules.length > 0 && (
-            <Row ctx={ctx} label="Правила">
-              <Bullets ctx={ctx} items={section.rules} />
-            </Row>
+            <ListRow ctx={ctx} label="Правила" items={section.rules} />
           )}
           {section.pairs.length > 0 && (
             <View style={{ marginTop: u(24) }}>
@@ -563,7 +582,7 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
         {section.colors.map((c) => (
           <View key={c.id} wrap={false} style={{ backgroundColor: c.hex, flexDirection: 'row', paddingVertical: u(20), paddingHorizontal: u(24) }}>
             <View style={{ flex: 1.2, paddingRight: u(12) }}>
-              <Text style={{ ...type(tokens.type.heading, 0.5), color: c.onColor }}>{s(c.name || 'Без названия')}</Text>
+              <Text style={{ ...type(tokens.type.heading, 0.5), color: c.onColor }}>{softBreak(c.name || 'Без названия', 10, 8)}</Text>
               <Text style={{ ...type(tokens.type.caption), color: c.onColor }}>{c.roleLabel}</Text>
             </View>
             <View style={{ flex: 1 }}>{values(c, c.onColor)}</View>
@@ -591,7 +610,7 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
             <View key={c.id} wrap={false} style={{ width, marginLeft: i % columns ? '2.5%' : 0, marginBottom: u(12), borderWidth: 0.75, borderColor: tokens.text }}>
               <View style={{ backgroundColor: c.hex, height: u(96) }} />
               <View style={{ padding: u(12) }}>
-                <Text style={{ ...type(tokens.type.body), fontWeight: 700 }}>{s(c.name || 'Без названия')}</Text>
+                <Text style={{ ...type(tokens.type.body), fontWeight: 700 }}>{softBreak(c.name || 'Без названия', 10, 8)}</Text>
                 <Text style={{ ...type(tokens.type.caption), marginBottom: u(8) }}>{c.roleLabel}</Text>
                 {values(c)}
                 <View style={{ marginTop: u(8) }}>
@@ -604,7 +623,7 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
               <View style={{ backgroundColor: c.hex, height: u(200), borderWidth: 0.75, borderColor: tokens.muted, justifyContent: 'flex-end', padding: u(12) }}>
                 <Text style={{ ...type(tokens.type.caption), color: c.onColor }}>{c.roleLabel}</Text>
               </View>
-              <Text style={{ ...type(tokens.type.body), fontWeight: 700, marginTop: u(12) }}>{s(c.name || 'Без названия')}</Text>
+              <Text style={{ ...type(tokens.type.body), fontWeight: 700, marginTop: u(12) }}>{softBreak(c.name || 'Без названия', 10, 8)}</Text>
               {values(c)}
               <View style={{ marginTop: u(8) }}>
                 <ContrastLines ctx={ctx} c={c} />

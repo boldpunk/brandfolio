@@ -49,7 +49,7 @@ test('archive round-trip into a clean browser profile', async ({ page, browser }
   // Imported logos are real assets, not broken references.
   const logo = other.getByRole('region', { name: 'Документ' }).getByRole('img', { name: 'Основной' });
   await expect(logo).toBeVisible();
-  await expect.poll(() => logo.evaluate((img) => (img as { naturalWidth: number }).naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => logo.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect(other.getByText(/Файл не найден|отсутствует/)).toHaveCount(0);
   await clean.close();
 });

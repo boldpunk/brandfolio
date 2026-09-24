@@ -1,3 +1,4 @@
+import { BackupSection } from './BackupSection';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/Field';
@@ -83,6 +84,7 @@ export default function SettingsPage() {
         )}
       </section>
 
+      <BackupSection />
 
       <section aria-labelledby="ui-h" className="mt-6 rounded-lg border border-line bg-panel p-5 sm:p-6">
         <h2 id="ui-h" className="text-lg font-bold">

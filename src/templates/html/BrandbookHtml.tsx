@@ -17,7 +17,7 @@ import {
   type SectionVM,
   type Tokens,
 } from '@/features/brandbook/viewModel';
-import { contentWidth, fitLogo, PAGE, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
+import { contentWidth, coverTitleScale, fitLogo, PAGE, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
 import { MockupsHtml } from './MockupsHtml';
 import './documentFonts.css';
 
@@ -101,8 +101,8 @@ function RunningHeader({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
         ...typeCss(tokens.type.caption),
       }}
     >
-      <span>{vm.documentTitle}</span>
-      <span>
+      <span style={{ flex: 1, minWidth: 0, paddingRight: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vm.documentTitle}</span>
+      <span style={{ whiteSpace: 'nowrap' }}>
         {String(section.number).padStart(2, '0')} · {section.title}
       </span>
     </div>
@@ -156,15 +156,15 @@ function Cover({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind:
   const fg = t.cover === 'bleed' && !section.backgroundChosen ? readableOn(background, tokens) : section.foreground;
   const logo = logoForSurface(background, section.logo, null);
   const meta = [section.version && `Версия ${section.version}`, section.dateLabel, section.author].filter(Boolean) as string[];
-  const title = typeCss(tokens.type.heading, t.cover === 'bleed' ? 2.4 : 2);
+  const title = typeCss(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, contentWidth(t)));
   const base: CSSProperties = { background, color: fg, minHeight: PAGE.height, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' };
 
   if (t.cover === 'grid') {
     return (
       <div style={{ ...base, padding: `${t.margin.top}px ${t.margin.right}px ${t.margin.bottom}px ${t.margin.left}px` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${fg}`, paddingBottom: 8, ...typeCss(tokens.type.caption) }}>
-          <span>Брендбук</span>
-          <span>{meta.join(' · ')}</span>
+          <span style={{ paddingRight: 16 }}>Брендбук</span>
+          <span style={{ flex: 1, minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>{meta.join(' · ')}</span>
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '48px 0', border: `1px solid ${fg}` }}>
           {logo && <AssetImage asset={logo} urls={urls} alt="Логотип" style={{ maxWidth: '50%', maxHeight: 220 }} />}

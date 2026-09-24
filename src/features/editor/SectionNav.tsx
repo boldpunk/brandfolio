@@ -94,7 +94,7 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
                 {!section.visible && <span className="sr-only"> (скрыт)</span>}
               </button>
               {!isCover && (
-                <span className="flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                <span className="hidden group-focus-within:flex group-hover:flex [@media(hover:none)]:flex">
                   <IconButton label={`Выше: ${SECTION_LABELS[section.kind]}`} size="sm" className="size-6" disabled={index <= 1} onClick={() => move(section.kind, -1)}>
                     <ChevronUp size={14} />
                   </IconButton>

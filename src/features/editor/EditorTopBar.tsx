@@ -65,7 +65,7 @@ export function EditorTopBar({ autosave, onToggleNav, navOpen }: { autosave: Ret
       )}
       <ProjectTitle title={project.title} onRename={(title) => apply((p) => ({ ...p, title }))} />
       <SaveBadge state={autosave.state} onRetry={() => void autosave.retry()} />
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <IconButton label="Отменить (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
           <Undo2 size={18} />
         </IconButton>
@@ -77,7 +77,7 @@ export function EditorTopBar({ autosave, onToggleNav, navOpen }: { autosave: Ret
           <select
             value={project.templateId}
             onChange={(e) => apply((p) => ({ ...p, templateId: e.target.value as TemplateId }))}
-            className={cn(controlClass, 'h-10 w-auto')}
+            className={cn(controlClass, 'h-10 w-auto min-w-[7.5rem]')}
           >
             {TEMPLATE_INFO.map((t) => (
               <option key={t.id} value={t.id}>
@@ -190,7 +190,7 @@ function SaveBadge({ state, onRetry }: { state: SaveState | null; onRetry: () =>
 
   const problem = status === 'error' || status === 'conflict' || status === 'invalid';
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <span
         className={cn(
           'hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap sm:inline-flex',
@@ -201,7 +201,7 @@ function SaveBadge({ state, onRetry }: { state: SaveState | null; onRetry: () =>
         <span aria-hidden className={cn('size-1.5 rounded-full', problem ? 'bg-danger' : status === 'saved' ? 'bg-success' : 'bg-line-strong')} />
         {STATUS_TEXT[status]}
       </span>
-      <span className={cn('text-xs font-semibold sm:hidden', problem ? 'text-danger' : 'text-muted')}>{STATUS_TEXT[status]}</span>
+      <span className={cn('text-xs font-semibold whitespace-nowrap sm:hidden', problem ? 'text-danger' : 'text-muted')}>{STATUS_TEXT[status]}</span>
       {status === 'error' && (
         <Button size="sm" onClick={onRetry}>
           Повторить

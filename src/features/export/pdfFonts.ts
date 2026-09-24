@@ -1,6 +1,7 @@
 import { Font } from '@react-pdf/renderer';
 import { FONT_FAMILIES, FONT_FAMILY_IDS, fontFileName } from '@/domain/fonts';
 
+const ZWSP = '\u200B';
 let registered = false;
 
 /**
@@ -17,8 +18,10 @@ export function registerPdfFonts(origin: string = globalThis.location?.origin ??
       fonts: family.weights.map((weight) => ({ src: base + fontFileName(id, weight), fontWeight: weight })),
     });
   }
-  // Keep words whole: react-pdf's default English hyphenation mangles Russian
-  // and Uzbek words. Very long tokens (URLs) are split separately before render.
-  Font.registerHyphenationCallback((word) => [word]);
+  // Keep ordinary words whole: react-pdf's default English hyphenation mangles
+  // Russian and Uzbek words. Very long tokens (URLs) get U+200B break points
+  // from softBreak(); textkit only breaks at spaces and "syllables", so those
+  // points are exposed as syllables. textkit draws a '-' at such a break.
+  Font.registerHyphenationCallback((word) => (word.includes(ZWSP) ? word.split(/(?<=\u200B)/) : [word]));
   registered = true;
 }

@@ -1,1 +1,91 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/* Interface fonts (document fonts are registered per family in templates/fonts.css). */
+@font-face {
+  font-family: 'UI Manrope';
+  src: url('/fonts/Manrope-400.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'UI Manrope';
+  src: url('/fonts/Manrope-600.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'UI Manrope';
+  src: url('/fonts/Manrope-700.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'UI Mono';
+  src: url('/fonts/JetBrainsMono-400.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+/*
+ * Interface tokens. Contrast (WCAG ratio, checked with src/domain/color.ts):
+ * ink on paper 15.7, muted on paper 5.55, muted on panel 6.21, ink on accent 13.3,
+ * danger on panel 6.57. Accent is a fill only (1.19 on paper), never text or a
+ * focus ring. Control borders use line-strong (3.2 on paper, 3.6 on panel).
+ */
+@theme {
+  --color-paper: #f4f2ed;
+  --color-panel: #ffffff;
+  --color-ink: #191919;
+  --color-muted: #62615b;
+  --color-line: #dcd8ce;
+  --color-line-strong: #8a877e;
+  --color-accent: #b8f16c;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-success: #2f6b12;
+  --color-desk: #e7e4dc;
+
+  --font-sans: 'UI Manrope', system-ui, sans-serif;
+  --font-mono: 'UI Mono', ui-monospace, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-panel: 0 1px 2px rgb(25 25 25 / 0.06), 0 4px 16px rgb(25 25 25 / 0.06);
+  --shadow-sheet: 0 1px 3px rgb(25 25 25 / 0.08), 0 12px 32px rgb(25 25 25 / 0.1);
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -104,3 +104,18 @@ describe('SaveController', () => {
     expect(controller.hasUnsavedChanges()).toBe(false);
   });
 });
+
+describe('SaveController validation', () => {
+  it('reports invalid documents without looping and saves once fixed', async () => {
+    const { projectSchema } = await import('@/domain/schema');
+    const save = vi.fn(async (p: Project, rev: number) => ({ ...projectSchema.parse(p), revision: rev + 1 }));
+    const { controller } = setup(save);
+    controller.schedule({ ...base, title: '' });
+    await controller.flush();
+    expect(controller.getState()).toMatchObject({ status: 'invalid', invalidPaths: ['title'] });
+    expect(save).toHaveBeenCalledTimes(1);
+    controller.schedule({ ...base, title: 'OK' });
+    await controller.flush();
+    expect(controller.getState().status).toBe('saved');
+  });
+});

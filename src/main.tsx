@@ -1,16 +1,17 @@
-import { StrictMode, Suspense, lazy } from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { RouterProvider } from 'react-router';
+import { AnnouncerProvider } from './components/ui/Announcer';
+import { router } from './app/router';
 import './index.css';
-
-const PdfPrototypePage = lazy(() => import('./features/export/prototype/PdfPrototypePage'));
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element missing');
 
 createRoot(root).render(
   <StrictMode>
-    <Suspense fallback={null}>
-      <PdfPrototypePage />
-    </Suspense>
+    <AnnouncerProvider>
+      <RouterProvider router={router} />
+    </AnnouncerProvider>
   </StrictMode>,
 );

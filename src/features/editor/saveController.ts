@@ -8,9 +8,10 @@
  * - On a revision conflict it stops autosaving until the user decides.
  */
 import type { Project } from '@/domain/schema';
+import { ZodError } from 'zod';
 import { RevisionConflictError, StorageWriteError } from '@/storage/errors';
 
-export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
+export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'error' | 'conflict' | 'invalid';
 
 export type SaveState = {
   status: SaveStatus;
@@ -18,6 +19,8 @@ export type SaveState = {
   quotaExceeded: boolean;
   savedRevision: number;
   savedAt: string | null;
+  /** Field paths that failed validation when status is 'invalid'. */
+  invalidPaths: string[];
 };
 
 type Options = {
@@ -37,7 +40,7 @@ export class SaveController {
 
   constructor(options: Options) {
     this.options = options;
-    this.state = { status: 'saved', error: null, quotaExceeded: false, savedRevision: options.initialRevision, savedAt: null };
+    this.state = { status: 'saved', error: null, quotaExceeded: false, savedRevision: options.initialRevision, savedAt: null, invalidPaths: [] };
   }
 
   getState(): SaveState {
@@ -83,7 +86,8 @@ export class SaveController {
 
   /** Read through a method so TypeScript does not narrow state across awaits. */
   private isBlocked(): boolean {
-    return this.state.status === 'error' || this.state.status === 'conflict';
+    // 'invalid' ends this flush; the next edit schedules a new attempt.
+    return this.state.status === 'error' || this.state.status === 'conflict' || this.state.status === 'invalid';
   }
 
   /** Retry after a storage error. */
@@ -117,9 +121,16 @@ export class SaveController {
         savedAt: saved.updatedAt,
         error: null,
         quotaExceeded: false,
+        invalidPaths: [],
       });
     } catch (error) {
-      if (error instanceof RevisionConflictError) {
+      if (error instanceof ZodError) {
+        this.update({
+          status: 'invalid',
+          error: 'Исправьте отмеченные поля: пока в них ошибки, изменения не сохраняются.',
+          invalidPaths: error.issues.map((i) => i.path.join('.')),
+        });
+      } else if (error instanceof RevisionConflictError) {
         this.update({ status: 'conflict', error: error.message });
       } else {
         this.update({

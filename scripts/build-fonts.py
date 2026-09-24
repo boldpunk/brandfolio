@@ -79,6 +79,30 @@ def fetch(rel: str, name: str) -> pathlib.Path:
     return target
 
 
+def ensure_zero_width_space(font: TTFont) -> None:
+    """Adds an empty, zero-advance U+200B glyph when the font lacks one.
+
+    The PDF export inserts U+200B inside very long tokens (URLs) as a break
+    opportunity; without a glyph react-pdf would draw a .notdef box.
+    """
+    cmap = font.getBestCmap()
+    if 0x200B in cmap:
+        return
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    name = "uni200B"
+    order = font.getGlyphOrder()
+    order.append(name)
+    font.setGlyphOrder(order)
+    font["glyf"].glyphs[name] = TTGlyphPen(None).glyph()
+    font["glyf"].glyphOrder = order
+    font["hmtx"].metrics[name] = (0, 0)
+    for table in font["cmap"].tables:
+        if table.isUnicode():
+            table.cmap[0x200B] = name
+    font["maxp"].numGlyphs = len(order)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     manifest = []
@@ -99,6 +123,7 @@ def main() -> None:
             subsetter = subset.Subsetter(options)
             subsetter.populate(unicodes=UNICODES)
             subsetter.subset(static)
+            ensure_zero_width_space(static)
             out_name = f"{family}-{weight}.ttf"
             static.save(OUT / out_name)
             data = (OUT / out_name).read_bytes()

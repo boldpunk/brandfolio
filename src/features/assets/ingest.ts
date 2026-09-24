@@ -59,6 +59,7 @@ export function headerDimensions(bytes: Uint8Array, type: 'image/png' | 'image/j
 const EXTENSIONS: Record<AssetMimeType, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg' };
 
 function cleanFilename(name: string, type: AssetMimeType): string {
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
   const base = name.split(/[\\/]/).pop()?.replace(/[\u0000-\u001f]/g, '').trim() || 'file';
   const stem = base.replace(/\.[^.]*$/, '').slice(0, 200) || 'file';
   return `${stem}.${EXTENSIONS[type]}`;

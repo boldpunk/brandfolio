@@ -75,11 +75,16 @@ export class SaveController {
       this.inFlight = this.write(snapshot);
       await this.inFlight;
       this.inFlight = null;
-      if (this.state.status === 'error' || this.state.status === 'conflict') return;
+      if (this.isBlocked()) return;
     }
   }
 
   private retrying = false;
+
+  /** Read through a method so TypeScript does not narrow state across awaits. */
+  private isBlocked(): boolean {
+    return this.state.status === 'error' || this.state.status === 'conflict';
+  }
 
   /** Retry after a storage error. */
   retry(): Promise<void> {

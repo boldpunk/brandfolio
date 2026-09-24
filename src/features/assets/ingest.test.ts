@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import pngUrl from '@/tests/fixtures/ring-alpha.png?url';
+import pngDataUrl from '@/tests/fixtures/ring-alpha.png?inline';
 import markSvg from '@/tests/fixtures/mark.svg?raw';
 import { headerDimensions, ingestFile, sniffType, type Decoder } from './ingest';
 
@@ -9,8 +9,8 @@ const brokenDecoder: Decoder = async () => {
   throw new Error('decode failed');
 };
 
-function pngHeader(width: number, height: number): Uint8Array {
-  const bytes = new Uint8Array(64);
+function pngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(new ArrayBuffer(64));
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
   const view = new DataView(bytes.buffer);
   view.setUint32(16, width);
@@ -33,7 +33,7 @@ describe('asset ingestion (A05)', () => {
   });
 
   it('accepts a PNG with the right metadata', async () => {
-    const bytes = new Uint8Array(await (await import('node:fs/promises')).readFile(`.${pngUrl}`));
+    const bytes = Uint8Array.from(atob(pngDataUrl.split(',')[1]!), (c) => c.charCodeAt(0));
     const r = await ingestFile(file(bytes, 'C:\\fakepath\\Лого.PNG', 'image/png'), { kind: 'logo', projectId: 'p1', decode: okDecoder });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.asset).toMatchObject({ mimeType: 'image/png', filename: 'Лого.png', width: 240, height: 240, projectId: 'p1' });

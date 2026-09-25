@@ -6,7 +6,7 @@ name: Deploy
 # certbot if they are missing and requests the certificate.
 on:
   push:
-    branches: [main, claude/brandfolio-v1]
+    branches: [main]
   workflow_dispatch: {}
 
 concurrency:
@@ -35,6 +35,12 @@ jobs:
           cache: npm
       - if: env.HAS_SECRETS == 'true'
         run: npm ci && npm run build
+        # Optional cookieless statistics (see src/lib/analytics.ts); set as
+        # repository variables, the build leaves analytics off without them.
+        env:
+          VITE_ANALYTICS: ${{ vars.ANALYTICS_PROVIDER }}
+          VITE_ANALYTICS_SRC: ${{ vars.ANALYTICS_SRC }}
+          VITE_ANALYTICS_ID: ${{ vars.ANALYTICS_ID }}
 
       - name: Upload build and publish
         if: env.HAS_SECRETS == 'true'
@@ -63,7 +69,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
           set -eu
-          for path in / /projects /editor/unknown /fonts/Manrope-400.ttf; do
+          for path in / /projects /editor/unknown /fonts/Manrope-400.ttf /robots.txt /sitemap.xml /og-image.jpg; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$DEPLOY_DOMAIN:443:$SSH_HOST" "https://$DEPLOY_DOMAIN$path" || true)
             if [ "$code" != 200 ]; then
               code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$DEPLOY_DOMAIN:80:$SSH_HOST" "http://$DEPLOY_DOMAIN$path" || true)

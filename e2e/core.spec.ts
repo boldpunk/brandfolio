@@ -37,7 +37,7 @@ test('archive round-trip into a clean browser profile', async ({ page, browser }
   expect(download.suggestedFilename()).toMatch(/\.brandfolio\.zip$/);
   const archive = (await download.path())!;
 
-  const clean = await browser.newContext();
+  const clean = await browser.newContext({ locale: 'ru-RU' });
   const other = await clean.newPage();
   await other.goto('/projects');
   await expect(other.getByText('Пока нет ни одного проекта')).toBeVisible();

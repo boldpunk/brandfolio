@@ -2,6 +2,8 @@
  * All IndexedDB access for projects and assets. Every multi-record change runs
  * in one Dexie transaction so a failure never leaves a half-written project.
  */
+import { getLocale, msg, type Locale } from '@/i18n/core';
+import { validationMessages } from '@/i18n/messages/validation';
 import { createId } from '@/domain/ids';
 import { parseProject } from '@/domain/migrations';
 import { referencedAssetIds, remapProject } from '@/domain/remap';
@@ -73,13 +75,13 @@ export async function createProject(project: Project, assets: Asset[] = []): Pro
   const valid = projectSchema.parse(project);
   const assetIds = new Set(valid.assetIds);
   for (const asset of assets) {
-    if (asset.projectId !== valid.id || !assetIds.has(asset.id)) throw new IntegrityError(`Ассет ${asset.id} не принадлежит проекту`);
+    if (asset.projectId !== valid.id || !assetIds.has(asset.id)) throw new IntegrityError(msg(validationMessages).assetNotInProject(asset.id));
   }
-  if (assets.length !== assetIds.size) throw new IntegrityError('Не для всех ассетов проекта есть файлы');
+  if (assets.length !== assetIds.size) throw new IntegrityError(msg(validationMessages).assetsIncomplete);
   const db = getDb();
   await write(() =>
     db.transaction('rw', db.projects, db.assets, async () => {
-      if (await db.projects.get(valid.id)) throw new IntegrityError('Проект с таким ID уже существует');
+      if (await db.projects.get(valid.id)) throw new IntegrityError(msg(validationMessages).duplicateProjectId);
       await db.assets.bulkAdd(assets);
       await db.projects.add(valid);
     }),
@@ -103,7 +105,7 @@ export async function saveProject(project: Project, expectedRevision: number, no
       const owned = await db.assets.where('projectId').equals(project.id).primaryKeys();
       const ownedSet = new Set(owned);
       const missing = next.assetIds.filter((id) => !ownedSet.has(id));
-      if (missing.length) throw new IntegrityError(`Нет файлов ассетов: ${missing.join(', ')}`);
+      if (missing.length) throw new IntegrityError(msg(validationMessages).missingAssets(missing.join(', ')));
       await db.projects.put(next);
       return next;
     }),
@@ -182,7 +184,7 @@ async function insertCopy(source: Project, now: Date): Promise<Project> {
   });
   // Each copy owns separate asset records, so deleting it never touches the original's files.
   const copies = assets.map((asset, i) => {
-    if (!asset) throw new IntegrityError(`Нет файла ассета ${source.assetIds[i]}`);
+    if (!asset) throw new IntegrityError(msg(validationMessages).missingAsset(String(source.assetIds[i])));
     return { ...asset, id: assetIdMap.get(asset.id)!, projectId: newId };
   });
   await db.assets.bulkAdd(copies);
@@ -190,8 +192,8 @@ async function insertCopy(source: Project, now: Date): Promise<Project> {
   return copy;
 }
 
-export function copyTitle(title: string): string {
-  const suffix = ' (копия)';
+export function copyTitle(title: string, language: Locale = getLocale()): string {
+  const suffix = msg(validationMessages, language).copySuffix;
   return title.length + suffix.length <= 80 ? title + suffix : title.slice(0, 80 - suffix.length) + suffix;
 }
 

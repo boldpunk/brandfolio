@@ -9,6 +9,8 @@
  */
 import type { Project } from '@/domain/schema';
 import { ZodError } from 'zod';
+import { msg } from '@/i18n/core';
+import { editorMessages } from '@/i18n/messages/editor';
 import { RevisionConflictError, StorageWriteError } from '@/storage/errors';
 
 export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'error' | 'conflict' | 'invalid';
@@ -127,7 +129,7 @@ export class SaveController {
       if (error instanceof ZodError) {
         this.update({
           status: 'invalid',
-          error: 'Исправьте отмеченные поля: пока в них ошибки, изменения не сохраняются.',
+          error: msg(editorMessages).save.invalid,
           invalidPaths: error.issues.map((i) => i.path.join('.')),
         });
       } else if (error instanceof RevisionConflictError) {

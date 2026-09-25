@@ -1,13 +1,18 @@
+import { msg } from '@/i18n/core';
+import { validationMessages } from '@/i18n/messages/validation';
 import { CURRENT_SCHEMA_VERSION, projectSchema, type Project } from './schema';
 
 /**
  * Each migration upgrades a raw document from version N to N+1. Documents are
  * validated with the current schema only after all migrations ran.
- * Version 1 is the first released schema, so the table is empty for now;
- * a future v2 adds `1: (doc) => ({ ...doc, schemaVersion: 2, ... })`.
+ *
+ * v1 → v2: the document gets its own `language`. Every v1 project was made
+ * in the Russian-only release, so its labels stay Russian.
  */
 type RawDocument = Record<string, unknown> & { schemaVersion: number };
-export const MIGRATIONS: Record<number, (doc: RawDocument) => RawDocument> = {};
+export const MIGRATIONS: Record<number, (doc: RawDocument) => RawDocument> = {
+  1: (doc) => ({ ...doc, schemaVersion: 2, language: 'ru' }),
+};
 
 export class SchemaVersionError extends Error {
   readonly found: unknown;
@@ -24,22 +29,19 @@ export function migrateProject(
   targetVersion: number = CURRENT_SCHEMA_VERSION,
 ): RawDocument {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    throw new SchemaVersionError('Файл проекта не является объектом JSON', input);
+    throw new SchemaVersionError(msg(validationMessages).notJsonObject, input);
   }
   const version = (input as { schemaVersion?: unknown }).schemaVersion;
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
-    throw new SchemaVersionError('В проекте нет корректного schemaVersion', version);
+    throw new SchemaVersionError(msg(validationMessages).badSchemaVersion, version);
   }
   if (version > targetVersion) {
-    throw new SchemaVersionError(
-      `Проект создан более новой версией Brandfolio (схема ${version}, поддерживается до ${targetVersion}). Обновите приложение.`,
-      version,
-    );
+    throw new SchemaVersionError(msg(validationMessages).newerSchema(version, targetVersion), version);
   }
   let doc = input as RawDocument;
   for (let v = version; v < targetVersion; v++) {
     const step = migrations[v];
-    if (!step) throw new SchemaVersionError(`Нет миграции со схемы ${v}`, v);
+    if (!step) throw new SchemaVersionError(msg(validationMessages).noMigration(v), v);
     doc = step(doc);
   }
   return doc;

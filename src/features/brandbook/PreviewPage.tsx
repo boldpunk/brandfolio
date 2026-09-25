@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import type { Project } from '@/domain/schema';
 import { useProjectAssets } from '@/features/assets/useProjectAssets';
 import { ExportDialog } from '@/features/export/ExportDialog';
+import { useMessages } from '@/i18n/core';
+import { previewMessages } from '@/i18n/messages/preview';
 import { getProject } from '@/storage/projectRepository';
 import { BrandbookHtml } from '@/templates/html/BrandbookHtml';
 import { PAGE } from '@/templates/templateStyle';
@@ -14,6 +16,7 @@ import { buildViewModel } from './viewModel';
 /** Full-screen brandbook without editing panels. Empty sections are left out, as in the PDF. */
 export default function PreviewPage() {
   const { projectId = '' } = useParams();
+  const m = useMessages(previewMessages);
   const [project, setProject] = useState<Project | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -41,17 +44,17 @@ export default function PreviewPage() {
 
   if (error) return <p className="p-8 text-danger">{error}</p>;
   if (project === null) return <ProjectMissingPage />;
-  if (!project || !vm) return <p className="p-8 text-muted">Открываем…</p>;
+  if (!project || !vm) return <p className="p-8 text-muted">{m.loading}</p>;
 
   return (
     <div className="min-h-dvh bg-desk">
       <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-line bg-panel/95 px-3 backdrop-blur">
-        <Link to={`/editor/${project.id}`} className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold hover:bg-ink/5">
-          <ArrowLeft size={18} /> <span className="hidden sm:inline">В редактор</span>
+        <Link to={`/editor/${project.id}`} aria-label={m.backToEditor} className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold hover:bg-ink/5">
+          <ArrowLeft size={18} /> <span className="hidden sm:inline">{m.backToEditor}</span>
         </Link>
         <h1 className="min-w-0 flex-1 truncate font-bold">{project.title}</h1>
         <Button variant="primary" icon={<FileDown size={16} />} onClick={() => setExportOpen(true)}>
-          Экспорт
+          {m.export}
         </Button>
       </header>
       <main ref={wrap} className="px-4 py-8">

@@ -29,11 +29,14 @@ export const FORMA_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 export const FORMA_LOGO_LIGHT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 416 96" width="416" height="96">${mark('#3A3A3A')}${word(IVORY)}</svg>`;
 export const FORMA_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">${mark(GRAPHITE)}</svg>`;
 
-/** Three abstract compositions standing in for photography (rasterized to PNG). */
-export const FORMA_COMPOSITIONS: { name: string; caption: string; focalX: number; focalY: number; svg: string }[] = [
+/**
+ * Three abstract compositions standing in for photography (rasterized to PNG).
+ * Captions live in demoMessages.imagery.captions under the same key.
+ */
+export const FORMA_COMPOSITIONS: { key: 'light' | 'material' | 'space'; name: string; focalX: number; focalY: number; svg: string }[] = [
   {
+    key: 'light',
     name: 'svet-i-ten.png',
-    caption: 'Свет и тень: мягкий боковой свет, длинные тени, тёплый тон',
     focalX: 62,
     focalY: 40,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="1600" height="1200">
@@ -47,8 +50,8 @@ export const FORMA_COMPOSITIONS: { name: string; caption: string; focalX: number
     </svg>`,
   },
   {
+    key: 'material',
     name: 'material.png',
-    caption: 'Материал: ритм арок и фактура, без лишних деталей',
     focalX: 50,
     focalY: 55,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="1600" height="1200">
@@ -61,8 +64,8 @@ export const FORMA_COMPOSITIONS: { name: string; caption: string; focalX: number
     </svg>`,
   },
   {
+    key: 'space',
     name: 'prostranstvo.png',
-    caption: 'Пространство: чистая перспектива, много воздуха, один акцент',
     focalX: 45,
     focalY: 60,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="1600" height="1200">

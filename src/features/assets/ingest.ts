@@ -5,6 +5,8 @@
 import { createId } from '@/domain/ids';
 import { ASSET_LIMITS } from '@/domain/limits';
 import type { Asset, AssetKind, AssetMimeType } from '@/domain/schema';
+import { msg } from '@/i18n/core';
+import { assetsMessages } from '@/i18n/messages/assets';
 import { sanitizeSvg } from './svgSanitizer';
 
 export type IngestResult = { ok: true; asset: Asset; notes: string[] } | { ok: false; error: string };
@@ -70,15 +72,16 @@ export async function ingestFile(
   options: { kind: AssetKind; projectId: string; allowSvg?: boolean; decode?: Decoder },
 ): Promise<IngestResult> {
   const { kind, projectId, allowSvg = kind === 'logo', decode = browserDecoder } = options;
-  const allowed = allowSvg ? 'PNG, JPEG или SVG' : 'PNG или JPEG';
-  if (file.size === 0) return { ok: false, error: 'Файл пустой.' };
+  const m = msg(assetsMessages);
+  const allowed = allowSvg ? m.allowedWithSvg : m.allowedRaster;
+  if (file.size === 0) return { ok: false, error: m.empty };
   if (file.size > ASSET_LIMITS.maxBytes) {
-    return { ok: false, error: `Файл больше 5 МиБ (${(file.size / 1024 / 1024).toFixed(1)} МиБ). Уменьшите его и загрузите снова.` };
+    return { ok: false, error: m.tooBig((file.size / 1024 / 1024).toFixed(1)) };
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
   const type = sniffType(bytes);
   if (!type || (type === 'image/svg+xml' && !allowSvg)) {
-    return { ok: false, error: `Неподдерживаемый формат. Загрузите ${allowed}.` };
+    return { ok: false, error: m.unsupported(allowed) };
   }
 
   if (type === 'image/svg+xml') {
@@ -86,14 +89,14 @@ export async function ingestFile(
     try {
       source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } catch {
-      return { ok: false, error: 'SVG не в кодировке UTF-8 или повреждён.' };
+      return { ok: false, error: m.svgEncoding };
     }
     const result = sanitizeSvg(source);
     if (!result.ok) return { ok: false, error: result.reason };
     const blob = new Blob([result.svg], { type });
     return {
       ok: true,
-      notes: result.removed.length ? ['Из SVG удалены служебные данные и небезопасные атрибуты.'] : [],
+      notes: result.removed.length ? [m.svgCleaned] : [],
       asset: {
         id: createId('a'),
         projectId,
@@ -109,16 +112,16 @@ export async function ingestFile(
   }
 
   const header = headerDimensions(bytes, type);
-  if (!header || header.width === 0 || header.height === 0) return { ok: false, error: 'Файл повреждён: не удалось прочитать размеры изображения.' };
+  if (!header || header.width === 0 || header.height === 0) return { ok: false, error: m.noDimensions };
   if (header.width * header.height > ASSET_LIMITS.maxPixels) {
-    return { ok: false, error: `Изображение ${header.width}×${header.height} больше 20 мегапикселей. Уменьшите его.` };
+    return { ok: false, error: m.tooManyPixels(header.width, header.height) };
   }
   const blob = new Blob([bytes], { type });
   let size: Dimensions;
   try {
     size = await decode(blob);
   } catch {
-    return { ok: false, error: 'Файл повреждён: браузер не смог его открыть.' };
+    return { ok: false, error: m.decodeFailed };
   }
   return {
     ok: true,

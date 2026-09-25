@@ -5,7 +5,7 @@ name: Pages preview
 # in Settings → Pages (Deploy from a branch → gh-pages, / (root)).
 on:
   push:
-    branches: [main, claude/brandfolio-v1]
+    branches: [main]
   workflow_dispatch: {}
 
 concurrency:

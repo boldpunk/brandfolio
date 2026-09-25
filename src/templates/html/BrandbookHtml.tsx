@@ -17,13 +17,18 @@ import {
   type SectionVM,
   type Tokens,
 } from '@/features/brandbook/viewModel';
+import { LOCALE_TAGS } from '@/i18n/locales';
+import { documentMessages } from '@/i18n/messages/document';
 import { contentWidth, coverTitleScale, fitLogo, PAGE, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
 import { MockupsHtml } from './MockupsHtml';
 import './documentFonts.css';
 
 export type AssetUrls = ReadonlyMap<string, string>;
 
-type Ctx = { vm: BrandbookViewModel; t: TemplateStyle; urls: AssetUrls; tokens: Tokens };
+/** Labels printed inside the document, in the document's language. */
+export type DocumentLabels = (typeof documentMessages)['ru'];
+
+type Ctx = { vm: BrandbookViewModel; t: TemplateStyle; urls: AssetUrls; tokens: Tokens; m: DocumentLabels };
 
 export function typeCss(type: ResolvedType, scale = 1): CSSProperties {
   return {
@@ -44,10 +49,10 @@ export function AssetImage({ asset, urls, style, alt }: { asset: AssetRef; urls:
 }
 
 export function BrandbookHtml({ vm, urls, only }: { vm: BrandbookViewModel; urls: AssetUrls; only?: SectionVM['kind'] }) {
-  const ctx: Ctx = { vm, t: TEMPLATE_STYLES[vm.templateId], urls, tokens: vm.tokens };
+  const ctx: Ctx = { vm, t: TEMPLATE_STYLES[vm.templateId], urls, tokens: vm.tokens, m: documentMessages[vm.language] };
   const sections = only ? vm.sections.filter((s) => s.kind === only) : vm.sections;
   return (
-    <div className="bf-document" style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+    <div className="bf-document" lang={LOCALE_TAGS[vm.language]} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       {sections.map((section) => (
         <Sheet key={section.kind} ctx={ctx} section={section} />
       ))}
@@ -110,7 +115,7 @@ function RunningHeader({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
 }
 
 function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
-  const { t, tokens } = ctx;
+  const { t, tokens, m } = ctx;
   const number = String(section.number).padStart(2, '0');
   const heading = typeCss(tokens.type.heading, t.headingScale);
   if (t.opener === 'field') {
@@ -137,7 +142,7 @@ function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
   if (t.opener === 'rail') {
     return (
       <header style={{ display: 'grid', gridTemplateColumns: `${t.labelColumn * 100}% 1fr`, alignItems: 'end', borderBottom: `2px solid ${tokens.text}`, paddingBottom: 16, marginBottom: 40 }}>
-        <span style={{ ...typeCss(tokens.type.caption), textTransform: 'uppercase' }}>Раздел {number}</span>
+        <span style={{ ...typeCss(tokens.type.caption), textTransform: 'uppercase' }}>{m.sectionNumber(number)}</span>
         <h2 style={{ ...heading, margin: 0, overflowWrap: 'anywhere' }}>{section.title}</h2>
       </header>
     );
@@ -151,11 +156,11 @@ function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
 }
 
 function Cover({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind: 'cover' }> }) {
-  const { t, tokens, urls } = ctx;
+  const { t, tokens, urls, m } = ctx;
   const background = t.cover === 'bleed' && !section.backgroundChosen ? tokens.primary : section.background;
   const fg = t.cover === 'bleed' && !section.backgroundChosen ? readableOn(background, tokens) : section.foreground;
   const logo = logoForSurface(background, section.logo, null);
-  const meta = [section.version && `Версия ${section.version}`, section.dateLabel, section.author].filter(Boolean) as string[];
+  const meta = [section.version && m.version(section.version), section.dateLabel, section.author].filter(Boolean) as string[];
   const title = typeCss(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, contentWidth(t)));
   const base: CSSProperties = { background, color: fg, minHeight: PAGE.height, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' };
 
@@ -163,11 +168,11 @@ function Cover({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind:
     return (
       <div style={{ ...base, padding: `${t.margin.top}px ${t.margin.right}px ${t.margin.bottom}px ${t.margin.left}px` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${fg}`, paddingBottom: 8, ...typeCss(tokens.type.caption) }}>
-          <span style={{ paddingRight: 16 }}>Брендбук</span>
+          <span style={{ paddingRight: 16 }}>{m.brandbook}</span>
           <span style={{ flex: 1, minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>{meta.join(' · ')}</span>
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '48px 0', border: `1px solid ${fg}` }}>
-          {logo && <AssetImage asset={logo} urls={urls} alt="Логотип" style={{ maxWidth: '50%', maxHeight: 220 }} />}
+          {logo && <AssetImage asset={logo} urls={urls} alt={m.logoAlt} style={{ maxWidth: '50%', maxHeight: 220 }} />}
         </div>
         <h1 style={{ ...title, margin: 0, overflowWrap: 'anywhere' }}>{section.heading}</h1>
         {section.subtitle && <p style={{ ...typeCss(tokens.type.body, 1.25), ...textBlock, marginTop: 16, maxWidth: '75%' }}>{section.subtitle}</p>}
@@ -177,7 +182,7 @@ function Cover({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind:
   if (t.cover === 'bleed') {
     return (
       <div style={{ ...base, padding: `${t.margin.top}px ${t.margin.right}px ${t.margin.bottom}px ${t.margin.left}px`, justifyContent: 'space-between' }}>
-        {logo ? <AssetImage asset={logo} urls={urls} alt="Логотип" style={{ maxHeight: 96, maxWidth: 260 }} /> : <span />}
+        {logo ? <AssetImage asset={logo} urls={urls} alt={m.logoAlt} style={{ maxHeight: 96, maxWidth: 260 }} /> : <span />}
         <div>
           <h1 style={{ ...title, margin: 0, overflowWrap: 'anywhere' }}>{section.heading}</h1>
           {section.subtitle && <p style={{ ...typeCss(tokens.type.body, 1.3), ...textBlock, marginTop: 20 }}>{section.subtitle}</p>}
@@ -188,7 +193,7 @@ function Cover({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind:
   }
   return (
     <div style={{ ...base, padding: `${t.margin.top}px ${t.margin.right}px ${t.margin.bottom}px ${t.margin.left}px` }}>
-      {logo ? <AssetImage asset={logo} urls={urls} alt="Логотип" style={{ maxHeight: 72, maxWidth: 220 }} /> : <span style={{ height: 72 }} />}
+      {logo ? <AssetImage asset={logo} urls={urls} alt={m.logoAlt} style={{ maxHeight: 72, maxWidth: 220 }} /> : <span style={{ height: 72 }} />}
       <div style={{ flex: 1 }} />
       <h1 style={{ ...title, margin: 0, maxWidth: '92%', overflowWrap: 'anywhere' }}>{section.heading}</h1>
       {section.subtitle && <p style={{ ...typeCss(tokens.type.body, 1.25), ...textBlock, marginTop: 20, maxWidth: '70%', marginLeft: '30%' }}>{section.subtitle}</p>}
@@ -250,7 +255,7 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
             </Row>
           ))}
           {section.values.length > 0 && (
-            <Row ctx={ctx} label="Ценности">
+            <Row ctx={ctx} label={ctx.m.about.values}>
               <List ctx={ctx} items={section.values} ordered />
             </Row>
           )}
@@ -273,7 +278,7 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
                     {ctx.urls.get(img.asset.id) && (
                       <img
                         src={ctx.urls.get(img.asset.id)}
-                        alt={img.caption || 'Пример изображения'}
+                        alt={img.caption || ctx.m.imagery.imageAlt}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${img.focalX}% ${img.focalY}%`, display: 'block' }}
                       />
                     )}
@@ -304,7 +309,7 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
             </div>
           )}
           {section.rules.length > 0 && (
-            <Row ctx={ctx} label="Правила">
+            <Row ctx={ctx} label={ctx.m.voice.rules}>
               <List ctx={ctx} items={section.rules} />
             </Row>
           )}
@@ -312,8 +317,8 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 24, tableLayout: 'fixed', ...typeCss(ctx.tokens.type.body) }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '8px 12px 8px 0', borderBottom: `2px solid ${ctx.tokens.text}`, ...typeCss(ctx.tokens.type.caption), fontWeight: 700 }}>Так говорим</th>
-                  <th style={{ textAlign: 'left', padding: '8px 0 8px 12px', borderBottom: `2px solid ${ctx.tokens.text}`, ...typeCss(ctx.tokens.type.caption), fontWeight: 700 }}>Так не говорим</th>
+                  <th style={{ textAlign: 'left', padding: '8px 12px 8px 0', borderBottom: `2px solid ${ctx.tokens.text}`, ...typeCss(ctx.tokens.type.caption), fontWeight: 700 }}>{ctx.m.voice.say}</th>
+                  <th style={{ textAlign: 'left', padding: '8px 0 8px 12px', borderBottom: `2px solid ${ctx.tokens.text}`, ...typeCss(ctx.tokens.type.caption), fontWeight: 700 }}>{ctx.m.voice.avoid}</th>
                 </tr>
               </thead>
               <tbody>
@@ -331,24 +336,24 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
         </div>
       );
     case 'applications':
-      return <MockupsHtml section={section} tokens={ctx.tokens} urls={ctx.urls} />;
+      return <MockupsHtml section={section} tokens={ctx.tokens} urls={ctx.urls} labels={ctx.m} />;
     case 'contacts':
       return (
         <div>
           {section.organization && (
-            <Row ctx={ctx} label="Автор / организация">
+            <Row ctx={ctx} label={ctx.m.contacts.organization}>
               <Para ctx={ctx}>{section.organization}</Para>
             </Row>
           )}
           {section.email && (
-            <Row ctx={ctx} label="Email">
+            <Row ctx={ctx} label={ctx.m.contacts.email}>
               <a href={`mailto:${section.email}`} style={{ color: 'inherit', overflowWrap: 'anywhere' }}>
                 {section.email}
               </a>
             </Row>
           )}
           {section.website && (
-            <Row ctx={ctx} label="Сайт">
+            <Row ctx={ctx} label={ctx.m.contacts.website}>
               {isHttpUrl(section.website) ? (
                 <a href={section.website} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', overflowWrap: 'anywhere' }}>
                   {section.website}
@@ -359,7 +364,7 @@ function SectionBody({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
             </Row>
           )}
           {section.usageNote && (
-            <Row ctx={ctx} label="Использование материалов">
+            <Row ctx={ctx} label={ctx.m.contacts.usageNote}>
               <Para ctx={ctx}>{section.usageNote}</Para>
             </Row>
           )}
@@ -381,7 +386,7 @@ function LogoTile({ ctx, background, asset, label, clearSpace, width }: { ctx: C
             <AssetImage asset={asset} urls={ctx.urls} alt={label} style={{ width: size.width, height: size.height }} />
           </div>
         ) : (
-          <span style={{ ...typeCss(ctx.tokens.type.caption), color: fg }}>Нет файла</span>
+          <span style={{ ...typeCss(ctx.tokens.type.caption), color: fg }}>{ctx.m.logo.noFile}</span>
         )}
       </div>
       <figcaption style={{ ...typeCss(ctx.tokens.type.caption), marginTop: 8 }}>{label}</figcaption>
@@ -390,16 +395,17 @@ function LogoTile({ ctx, background, asset, label, clearSpace, width }: { ctx: C
 }
 
 function LogoBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind: 'logo' }> }) {
-  const { tokens, urls, t } = ctx;
+  const { tokens, urls, t, m: labels } = ctx;
+  const l = labels.logo;
   const main = section.primary;
   const full = contentWidth(t);
   const row = rowContentWidth(t);
   const onDark = logoForSurface(section.backgrounds.dark, main, section.light);
   const onBrand = logoForSurface(section.backgrounds.brand, main, section.light);
   const misuse = [
-    section.misuse.stretch && { label: 'Недопустимо: растягивать или сжимать', transform: 'scaleX(1.6)' },
-    section.misuse.rotate && { label: 'Недопустимо: наклонять и поворачивать', transform: 'rotate(-18deg)' },
-    section.misuse.busyBackground && { label: 'Недопустимо: размещать на пёстром фоне', transform: 'none', busy: true },
+    section.misuse.stretch && { label: l.misuseStretch, transform: 'scaleX(1.6)' },
+    section.misuse.rotate && { label: l.misuseRotate, transform: 'rotate(-18deg)' },
+    section.misuse.busyBackground && { label: l.misuseBusy, transform: 'none', busy: true },
   ].filter(Boolean) as { label: string; transform: string; busy?: boolean }[];
   return (
     <div>
@@ -411,24 +417,24 @@ function LogoBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { ki
         </div>
       )}
       {main && (
-        <Row ctx={ctx} label="На разных фонах">
+        <Row ctx={ctx} label={l.backgrounds}>
           <div style={{ display: 'flex', gap: 12 }}>
-            <LogoTile ctx={ctx} width={(row - 24) / 3} background={section.backgrounds.light} asset={main} label="Светлый фон" />
-            <LogoTile ctx={ctx} width={(row - 24) / 3} background={section.backgrounds.dark} asset={onDark} label={section.light ? 'Тёмный фон, светлая версия' : 'Тёмный фон'} />
-            <LogoTile ctx={ctx} width={(row - 24) / 3} background={section.backgrounds.brand} asset={onBrand} label="Фирменный цвет" />
+            <LogoTile ctx={ctx} width={(row - 24) / 3} background={section.backgrounds.light} asset={main} label={l.lightBackground} />
+            <LogoTile ctx={ctx} width={(row - 24) / 3} background={section.backgrounds.dark} asset={onDark} label={section.light ? l.darkBackgroundLightVersion : l.darkBackground} />
+            <LogoTile ctx={ctx} width={(row - 24) / 3} background={section.backgrounds.brand} asset={onBrand} label={l.brandColor} />
           </div>
         </Row>
       )}
       {main && (
-        <Row ctx={ctx} label="Охранное поле">
+        <Row ctx={ctx} label={l.clearSpace}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'center' }}>
-            <LogoTile ctx={ctx} width={(row - 16) / 2} background={section.backgrounds.light} asset={main} label={`Отступ ${section.clearSpace}× высоты логотипа`} clearSpace={section.clearSpace} />
+            <LogoTile ctx={ctx} width={(row - 16) / 2} background={section.backgrounds.light} asset={main} label={l.clearSpaceCaption(section.clearSpace)} clearSpace={section.clearSpace} />
             <div style={{ ...typeCss(tokens.type.body) }}>
-              <p style={{ margin: 0 }}>Свободное поле вокруг логотипа: {section.clearSpace} × H, где H — высота логотипа.</p>
+              <p style={{ margin: 0 }}>{l.clearSpaceNote(section.clearSpace)}</p>
               {(section.minSizePx !== null || section.minSizeMm !== null) && (
                 <p style={{ margin: '12px 0 0' }}>
-                  Минимальный размер:{' '}
-                  {[section.minSizePx !== null && `${section.minSizePx} px на экране`, section.minSizeMm !== null && `${section.minSizeMm} мм в печати`].filter(Boolean).join(', ')}.
+                  {l.minSize}{' '}
+                  {[section.minSizePx !== null && l.minSizeScreen(section.minSizePx), section.minSizeMm !== null && l.minSizePrint(section.minSizeMm)].filter(Boolean).join(', ')}.
                 </p>
               )}
             </div>
@@ -436,26 +442,26 @@ function LogoBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { ki
         </Row>
       )}
       {section.usageRules && (
-        <Row ctx={ctx} label="Правила использования">
+        <Row ctx={ctx} label={l.usageRules}>
           <Para ctx={ctx}>{section.usageRules}</Para>
         </Row>
       )}
       {(section.doRules.length > 0 || section.dontRules.length > 0) && (
-        <Row ctx={ctx} label="Можно и нельзя">
+        <Row ctx={ctx} label={l.doAndDont}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
             <div>
-              <p style={{ ...typeCss(tokens.type.caption), fontWeight: 700, margin: '0 0 8px' }}>Допустимо</p>
+              <p style={{ ...typeCss(tokens.type.caption), fontWeight: 700, margin: '0 0 8px' }}>{l.allowed}</p>
               <List ctx={ctx} items={section.doRules} />
             </div>
             <div>
-              <p style={{ ...typeCss(tokens.type.caption), fontWeight: 700, margin: '0 0 8px' }}>Недопустимо</p>
+              <p style={{ ...typeCss(tokens.type.caption), fontWeight: 700, margin: '0 0 8px' }}>{l.forbidden}</p>
               <List ctx={ctx} items={section.dontRules} />
             </div>
           </div>
         </Row>
       )}
       {main && misuse.length > 0 && (
-        <Row ctx={ctx} label="Ошибки применения">
+        <Row ctx={ctx} label={l.misuse}>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${misuse.length}, 1fr)`, gap: 12 }}>
             {misuse.map((m) => (
               <figure key={m.label} style={{ margin: 0 }}>
@@ -487,7 +493,8 @@ function LogoBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { ki
 }
 
 function ContrastLine({ ctx, label, ratio }: { ctx: Ctx; label: string; ratio: number }) {
-  const aa = ratio >= 4.5 ? 'AA для текста' : ratio >= 3 ? 'AA только крупный текст' : 'не для текста';
+  const c = ctx.m.colors;
+  const aa = ratio >= 4.5 ? c.aaText : ratio >= 3 ? c.aaLargeOnly : c.notForText;
   return (
     <span style={{ display: 'block', ...typeCss(ctx.tokens.type.caption) }}>
       {label}: {ratioLabel(ratio)}, {aa}
@@ -496,7 +503,7 @@ function ContrastLine({ ctx, label, ratio }: { ctx: Ctx; label: string; ratio: n
 }
 
 function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind: 'colors' }> }) {
-  const { t, tokens } = ctx;
+  const { t, tokens, m } = ctx;
   const values = (c: (typeof section.colors)[number]) => (
     <>
       <span style={{ display: 'block', fontFamily: "'BF Noto Sans'", fontSize: 12, lineHeight: 1.5 }}>{c.hex}</span>
@@ -506,7 +513,7 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
   );
   const note = (
     <p style={{ ...typeCss(tokens.type.caption), marginTop: 24, color: tokens.muted }}>
-      Контраст указан по WCAG 2.1 для пары цветов с фоном ({section.backgroundHex}) и цветом текста ({section.textHex}). Это проверка пар, а не оценка доступности бренда в целом.
+      {m.colors.contrastNote(section.backgroundHex, section.textHex)}
     </p>
   );
   if (t.colors === 'bands') {
@@ -515,13 +522,13 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
         {section.colors.map((c) => (
           <div key={c.id} style={{ background: c.hex, color: c.onColor, display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.3fr', gap: 16, padding: '20px 24px', breakInside: 'avoid' }}>
             <div>
-              <strong style={{ ...typeCss(tokens.type.heading, 0.5), display: 'block', overflowWrap: 'anywhere' }}>{c.name || 'Без названия'}</strong>
+              <strong style={{ ...typeCss(tokens.type.heading, 0.5), display: 'block', overflowWrap: 'anywhere' }}>{c.name || m.colors.untitled}</strong>
               <span style={typeCss(tokens.type.caption)}>{c.roleLabel}</span>
             </div>
             <div>{values(c)}</div>
             <div>
-              <ContrastLine ctx={ctx} label="С фоном" ratio={c.contrastWithBackground} />
-              <ContrastLine ctx={ctx} label="С текстом" ratio={c.contrastWithText} />
+              <ContrastLine ctx={ctx} label={m.colors.withBackground} ratio={c.contrastWithBackground} />
+              <ContrastLine ctx={ctx} label={m.colors.withText} ratio={c.contrastWithText} />
             </div>
           </div>
         ))}
@@ -537,12 +544,12 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
             <div key={c.id} style={{ border: `1px solid ${tokens.text}`, breakInside: 'avoid', minWidth: 0 }}>
               <div style={{ background: c.hex, height: 96 }} />
               <div style={{ padding: 12 }}>
-                <strong style={{ display: 'block', ...typeCss(tokens.type.body), fontWeight: 700, overflowWrap: 'anywhere' }}>{c.name || 'Без названия'}</strong>
+                <strong style={{ display: 'block', ...typeCss(tokens.type.body), fontWeight: 700, overflowWrap: 'anywhere' }}>{c.name || m.colors.untitled}</strong>
                 <span style={{ display: 'block', ...typeCss(tokens.type.caption), marginBottom: 8 }}>{c.roleLabel}</span>
                 {values(c)}
                 <div style={{ marginTop: 8 }}>
-                  <ContrastLine ctx={ctx} label="С фоном" ratio={c.contrastWithBackground} />
-                  <ContrastLine ctx={ctx} label="С текстом" ratio={c.contrastWithText} />
+                  <ContrastLine ctx={ctx} label={m.colors.withBackground} ratio={c.contrastWithBackground} />
+                  <ContrastLine ctx={ctx} label={m.colors.withText} ratio={c.contrastWithText} />
                 </div>
               </div>
             </div>
@@ -560,11 +567,11 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
             <div style={{ background: c.hex, height: 200, border: `1px solid ${tokens.muted}`, display: 'flex', alignItems: 'flex-end', padding: 12, boxSizing: 'border-box', color: c.onColor }}>
               <span style={typeCss(tokens.type.caption)}>{c.roleLabel}</span>
             </div>
-            <strong style={{ display: 'block', marginTop: 12, ...typeCss(tokens.type.body), fontWeight: 700, overflowWrap: 'anywhere' }}>{c.name || 'Без названия'}</strong>
+            <strong style={{ display: 'block', marginTop: 12, ...typeCss(tokens.type.body), fontWeight: 700, overflowWrap: 'anywhere' }}>{c.name || m.colors.untitled}</strong>
             {values(c)}
             <div style={{ marginTop: 8 }}>
-              <ContrastLine ctx={ctx} label="С фоном" ratio={c.contrastWithBackground} />
-              <ContrastLine ctx={ctx} label="С текстом" ratio={c.contrastWithText} />
+              <ContrastLine ctx={ctx} label={m.colors.withBackground} ratio={c.contrastWithBackground} />
+              <ContrastLine ctx={ctx} label={m.colors.withText} ratio={c.contrastWithText} />
             </div>
           </div>
         ))}
@@ -575,20 +582,20 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
 }
 
 function TypographyBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind: 'typography' }> }) {
-  const { tokens } = ctx;
+  const { tokens, m } = ctx;
   const [heading, body] = section.styles;
   return (
     <div>
       {section.styles.map((s) => (
         <Row key={s.role} ctx={ctx} label={s.roleLabel}>
           <p style={{ ...typeCss(tokens.type.caption), margin: '0 0 8px' }}>
-            {s.familyLabel} {s.weightLabel} · {s.sizePx} px ({s.sizePt} pt) · интерлиньяж {s.lineHeight} · трекинг {s.trackingEm} em
+            {s.familyLabel} {s.weightLabel} · {s.sizePx} px ({s.sizePt} pt) · {m.typography.lineHeight} {s.lineHeight} · {m.typography.tracking} {s.trackingEm} em
           </p>
           <p style={{ ...typeCss(s), margin: 0, overflowWrap: 'anywhere' }}>{s.role === 'body' && section.sampleParagraph ? section.sampleParagraph.slice(0, 220) : section.sampleHeading}</p>
         </Row>
       ))}
       {heading && body && (
-        <Row ctx={ctx} label="Набор символов">
+        <Row ctx={ctx} label={m.typography.characterSet}>
           <p style={{ ...typeCss(heading, 0.6), margin: '0 0 8px', overflowWrap: 'anywhere' }}>{TYPE_SAMPLE.alphabetRu}</p>
           <p style={{ ...typeCss(heading, 0.6), margin: '0 0 8px', overflowWrap: 'anywhere' }}>{TYPE_SAMPLE.alphabetLatin}</p>
           <p style={{ ...typeCss(body), margin: '0 0 8px' }}>{TYPE_SAMPLE.digits}</p>

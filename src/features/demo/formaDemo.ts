@@ -1,6 +1,6 @@
 /**
- * The demonstration project "FORMA — архитектурная студия". Fictional brand,
- * marked as demo. Its palette is an authored direction for the demo; not every
+ * The demonstration project "FORMA", an architecture studio. Fictional brand,
+ * marked as demo, available in every document language (texts in demoMessages). Its palette is an authored direction for the demo; not every
  * combination passes WCAG and the document does not claim so.
  */
 import { createId } from '@/domain/ids';
@@ -8,26 +8,30 @@ import { createEmptyProject } from '@/domain/project';
 import type { Asset, Project } from '@/domain/schema';
 import { rasterizeSvg } from '@/features/assets/rasterize';
 import { ingestFile } from '@/features/assets/ingest';
-import { createProject, listProjects } from '@/storage/projectRepository';
+import type { Locale } from '@/i18n/locales';
+import { demoMessages } from '@/i18n/messages/demo';
+import { createProject, getProject, listProjects } from '@/storage/projectRepository';
 import { FORMA_COMPOSITIONS, FORMA_LOGO_LIGHT_SVG, FORMA_LOGO_SVG, FORMA_MARK_SVG } from './formaAssets';
 
-async function asAsset(data: BlobPart, name: string, kind: Asset['kind'], projectId: string): Promise<Asset> {
+async function asAsset(data: BlobPart, name: string, kind: Asset['kind'], projectId: string, language: Locale): Promise<Asset> {
   const result = await ingestFile(new File([data], name), { kind, projectId });
-  if (!result.ok) throw new Error(`Демо-файл ${name}: ${result.error}`);
+  if (!result.ok) throw new Error(demoMessages[language].fileError(name, result.error));
   return result.asset;
 }
 
-export async function buildFormaDemo(now = new Date()): Promise<{ project: Project; assets: Asset[] }> {
-  const project = createEmptyProject('FORMA — архитектурная студия', 'editorial', now);
+/** Builds the demo with all texts and document labels in `language`. */
+export async function buildFormaDemo(now = new Date(), language: Locale = 'ru'): Promise<{ project: Project; assets: Asset[] }> {
+  const d = demoMessages[language];
+  const project = createEmptyProject(d.title, 'editorial', now, language);
   project.isDemo = true;
   const id = project.id;
 
-  const logo = await asAsset(FORMA_LOGO_SVG, 'forma-logo.svg', 'logo', id);
-  const light = await asAsset(FORMA_LOGO_LIGHT_SVG, 'forma-logo-light.svg', 'logo', id);
-  const markAsset = await asAsset(FORMA_MARK_SVG, 'forma-mark.svg', 'logo', id);
+  const logo = await asAsset(FORMA_LOGO_SVG, 'forma-logo.svg', 'logo', id, language);
+  const light = await asAsset(FORMA_LOGO_LIGHT_SVG, 'forma-logo-light.svg', 'logo', id, language);
+  const markAsset = await asAsset(FORMA_MARK_SVG, 'forma-mark.svg', 'logo', id, language);
   const images: Asset[] = [];
   for (const composition of FORMA_COMPOSITIONS) {
-    images.push(await asAsset(await rasterizeSvg(composition.svg, 1600), composition.name, 'image', id));
+    images.push(await asAsset(await rasterizeSvg(composition.svg, 1600), composition.name, 'image', id, language));
   }
 
   const ivory = createId('c');
@@ -37,37 +41,35 @@ export async function buildFormaDemo(now = new Date()): Promise<{ project: Proje
   const b = project.brand;
 
   b.colors = [
-    { id: ivory, name: 'Слоновая кость', role: 'background', hex: '#F3EFE7' },
-    { id: graphite, name: 'Графит', role: 'text', hex: '#242424' },
-    { id: terracotta, name: 'Терракота', role: 'primary', hex: '#B65C3A' },
-    { id: sage, name: 'Шалфей', role: 'secondary', hex: '#8C9A82' },
+    { id: ivory, name: d.colors.ivory, role: 'background', hex: '#F3EFE7' },
+    { id: graphite, name: d.colors.graphite, role: 'text', hex: '#242424' },
+    { id: terracotta, name: d.colors.terracotta, role: 'primary', hex: '#B65C3A' },
+    { id: sage, name: d.colors.sage, role: 'secondary', hex: '#8C9A82' },
   ];
   b.cover = {
     title: 'FORMA',
-    subtitle: 'Архитектурная студия. Руководство по фирменному стилю для команды и подрядчиков.',
+    subtitle: d.cover.subtitle,
     version: '1.0',
     date: now.toISOString().slice(0, 10),
-    author: 'Студия FORMA (демонстрационный проект)',
+    author: d.cover.author,
     logoVariant: 'primary',
     backgroundColorId: null,
   };
   b.about = {
-    description:
-      'FORMA проектирует жилые и общественные пространства, в которых главное — свет, материал и пропорция. Этот брендбук описывает, как студия выглядит и говорит в документах, на сайте и в соцсетях.',
-    mission: 'Создавать спокойные, долговечные пространства, в которых людям хорошо жить и работать.',
-    values: ['Ясность вместо декора', 'Честные материалы', 'Внимание к контексту места', 'Долгий срок службы решений'],
-    audience: 'Частные заказчики, девелоперы небольших жилых проектов и городские культурные институции.',
-    positioning: 'Студия для тех, кому важна не эффектная картинка, а продуманное пространство, которое хорошо стареет.',
+    description: d.about.description,
+    mission: d.about.mission,
+    values: [...d.about.values],
+    audience: d.about.audience,
+    positioning: d.about.positioning,
   };
   b.logo = {
     variants: { primary: logo.id, alternative: null, mark: markAsset.id, light: light.id },
     clearSpace: 0.5,
     minSizePx: 96,
     minSizeMm: 25,
-    usageRules:
-      'Логотип размещается на спокойном однотонном фоне. Знак можно использовать отдельно как аватар и штамп на чертежах. Логотип не перекрашивают: для тёмных фонов есть светлая версия.',
-    doRules: ['Размещать на фоне «Слоновая кость» или «Графит»', 'Соблюдать охранное поле 0.5 высоты', 'Использовать знак отдельно в квадратных форматах'],
-    dontRules: ['Растягивать и сжимать', 'Поворачивать и наклонять', 'Ставить на фотографии без подложки', 'Менять цвета элементов знака'],
+    usageRules: d.logo.usageRules,
+    doRules: [...d.logo.doRules],
+    dontRules: [...d.logo.dontRules],
     misuse: { stretch: true, rotate: true, busyBackground: true },
     previewColorId: terracotta,
   };
@@ -77,75 +79,74 @@ export async function buildFormaDemo(now = new Date()): Promise<{ project: Proje
     caption: { role: 'caption', familyId: 'manrope', weight: 600, sizePx: 11, lineHeight: 1.4, trackingEm: 0.04 },
   };
   b.imagery = {
-    images: images.map((asset, i) => ({ id: createId('i'), assetId: asset.id, caption: FORMA_COMPOSITIONS[i]!.caption, focalX: FORMA_COMPOSITIONS[i]!.focalX, focalY: FORMA_COMPOSITIONS[i]!.focalY })),
-    lighting: 'Естественный боковой свет, мягкие длинные тени. Съёмка утром или в конце дня.',
-    composition: 'Спокойная геометрия, сильные вертикали и горизонтали, много свободного пространства вокруг объекта.',
-    processing: 'Тёплый баланс белого, умеренный контраст, без тонирования в холодные оттенки.',
-    avoid: 'Широкоугольные искажения, людей в постановочных позах, яркие фильтры и HDR.',
+    images: images.map((asset, i) => {
+      const composition = FORMA_COMPOSITIONS[i]!;
+      return { id: createId('i'), assetId: asset.id, caption: d.imagery.captions[composition.key], focalX: composition.focalX, focalY: composition.focalY };
+    }),
+    lighting: d.imagery.lighting,
+    composition: d.imagery.composition,
+    processing: d.imagery.processing,
+    avoid: d.imagery.avoid,
   };
   b.voice = {
-    qualities: [
-      { id: createId('q'), title: 'Спокойно', description: 'Говорим уверенно и без восклицаний. Результат видно в работе, а не в громких словах.' },
-      { id: createId('q'), title: 'Точно', description: 'Называем сроки, материалы и решения конкретно, без размытых обещаний.' },
-      { id: createId('q'), title: 'Внимательно', description: 'Объясняем решения с точки зрения человека, который будет жить в пространстве.' },
-    ],
-    rules: ['Короткие предложения, одна мысль в каждом', 'Без англицизмов, если есть понятное русское слово', 'Цифры пишем цифрами'],
-    pairs: [
-      { id: createId('v'), say: 'Спроектируем дом за четыре месяца и покажем три варианта планировки.', avoid: 'Создадим дом вашей мечты в кратчайшие сроки!' },
-      { id: createId('v'), say: 'Фасад из термодерева: через десять лет он станет серебристым, так и задумано.', avoid: 'Уникальный премиальный фасад, который никого не оставит равнодушным.' },
-    ],
+    qualities: d.voice.qualities.map((q) => ({ id: createId('q'), ...q })),
+    rules: [...d.voice.rules],
+    pairs: d.voice.pairs.map((p) => ({ id: createId('v'), ...p })),
   };
   b.mockups = {
     businessCard: {
       kind: 'business-card',
       enabled: true,
       colors: { backgroundColorId: ivory, textColorId: graphite, accentColorId: graphite },
-      personName: 'Анна Соколова',
-      personRole: 'Ведущий архитектор',
-      phone: '+7 900 000-00-00',
+      personName: d.mockups.personName,
+      personRole: d.mockups.personRole,
+      phone: d.mockups.phone,
     },
     socialPost: {
       kind: 'social-post',
       enabled: true,
       colors: { backgroundColorId: terracotta, textColorId: ivory, accentColorId: ivory },
-      headline: 'Дом у сосен: как мы сохранили каждое дерево на участке',
-      caption: 'Новый проект в портфолио',
+      headline: d.mockups.postHeadline,
+      caption: d.mockups.postCaption,
     },
     websiteHero: {
       kind: 'website-hero',
       enabled: true,
       colors: { backgroundColorId: ivory, textColorId: graphite, accentColorId: terracotta },
-      headline: 'Пространства, которые хорошо стареют',
-      subheadline: 'Жилые и общественные проекты от эскиза до авторского надзора.',
-      ctaLabel: 'Смотреть проекты',
+      headline: d.mockups.heroHeadline,
+      subheadline: d.mockups.heroSubheadline,
+      ctaLabel: d.mockups.heroCta,
     },
     packagingLabel: {
       kind: 'packaging-label',
       enabled: true,
       colors: { backgroundColorId: ivory, textColorId: graphite, accentColorId: sage },
-      productName: 'Альбом проектов 2026',
-      descriptor: 'Двенадцать реализованных объектов, чертежи и материалы',
-      netContent: '96 страниц',
+      productName: d.mockups.productName,
+      descriptor: d.mockups.productDescriptor,
+      netContent: d.mockups.netContent,
     },
   };
   b.contacts = {
-    organization: 'Студия FORMA (вымышленная)',
+    organization: d.contacts.organization,
     email: 'hello@example.com',
     website: 'https://example.com',
-    usageNote: 'Демонстрационный проект Brandfolio. Бренд, тексты и изображения вымышлены и созданы для примера.',
+    usageNote: d.contacts.usageNote,
   };
   project.assetIds = [logo.id, light.id, markAsset.id, ...images.map((a) => a.id)];
   return { project, assets: [logo, light, markAsset, ...images] };
 }
 
 /**
- * Opens the user's demo copy if one exists (it is never overwritten by a
- * repeat visit), otherwise creates it.
+ * Opens the user's demo copy in `language` if one exists (it is never
+ * overwritten by a repeat visit), otherwise creates one in that language.
+ * Demo copies in other languages are left alone.
  */
-export async function openOrCreateDemo(): Promise<string> {
-  const existing = (await listProjects()).find((p) => p.isDemo);
-  if (existing) return existing.id;
-  const { project, assets } = await buildFormaDemo();
+export async function openOrCreateDemo(language: Locale = 'ru'): Promise<string> {
+  for (const summary of (await listProjects()).filter((p) => p.isDemo)) {
+    const existing = await getProject(summary.id).catch(() => null);
+    if (existing?.language === language) return existing.id;
+  }
+  const { project, assets } = await buildFormaDemo(undefined, language);
   await createProject(project, assets);
   return project.id;
 }

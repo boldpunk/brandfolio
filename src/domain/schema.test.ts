@@ -86,6 +86,13 @@ describe('migrations', () => {
     expect(() => migrateProject({ schemaVersion: 1 }, {}, 2)).toThrow(/Нет миграции/);
   });
 
+  it('upgrades a v1 document to v2 with Russian document labels', () => {
+    const { language: _language, ...v1 } = { ...createEmptyProject('Старый проект'), schemaVersion: 1 };
+    const parsed = parseProject(clone(v1));
+    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.language).toBe('ru');
+  });
+
   it('parses a current document unchanged', () => {
     const project = createEmptyProject('Проект');
     expect(parseProject(clone(project))).toEqual(project);

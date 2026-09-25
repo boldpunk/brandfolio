@@ -2,8 +2,10 @@ import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/Button';
 import { setSectionVisible } from '@/domain/operations';
-import { SECTION_LABELS } from '@/domain/project';
 import type { BrandbookViewModel } from '@/features/brandbook/viewModel';
+import { useMessages } from '@/i18n/core';
+import { brandMessages } from '@/i18n/messages/brand';
+import { editorMessages } from '@/i18n/messages/editor';
 import { setUiSettings, useUiSettings } from '@/lib/uiSettings';
 import { BrandbookHtml, type AssetUrls } from '@/templates/html/BrandbookHtml';
 import { PAGE } from '@/templates/templateStyle';
@@ -22,6 +24,8 @@ export function Canvas({ vm, urls }: { vm: BrandbookViewModel; urls: AssetUrls }
   const { editorZoom } = useUiSettings();
   const container = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(1);
+  const m = useMessages(editorMessages).canvas;
+  const labels = useMessages(brandMessages).sections;
 
   useEffect(() => {
     const el = container.current;
@@ -40,15 +44,15 @@ export function Canvas({ vm, urls }: { vm: BrandbookViewModel; urls: AssetUrls }
   const stepIndex = STEPS.findIndex((s) => s >= scale - 0.001);
 
   return (
-    <section aria-label="Документ" className="relative flex min-w-0 flex-1 flex-col bg-desk">
+    <section aria-label={m.document} className="relative flex min-w-0 flex-1 flex-col bg-desk">
       <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-line bg-paper/80 px-3">
-        <span className="truncate text-sm text-muted">{view === 'all' ? 'Весь документ' : SECTION_LABELS[view]}</span>
-        <div className="flex items-center gap-1" role="group" aria-label="Масштаб">
-          <IconButton label="Уменьшить" size="sm" onClick={() => zoomTo(STEPS[Math.max(0, stepIndex - 1)]!)} disabled={scale <= STEPS[0]! + 0.001}>
+        <span className="truncate text-sm text-muted">{view === 'all' ? m.wholeDocument : labels[view]}</span>
+        <div className="flex items-center gap-1" role="group" aria-label={m.zoom}>
+          <IconButton label={m.zoomOut} size="sm" onClick={() => zoomTo(STEPS[Math.max(0, stepIndex - 1)]!)} disabled={scale <= STEPS[0]! + 0.001}>
             <Minus size={16} />
           </IconButton>
           <label className="sr-only" htmlFor="zoom-select">
-            Масштаб
+            {m.zoom}
           </label>
           <select
             id="zoom-select"
@@ -56,14 +60,14 @@ export function Canvas({ vm, urls }: { vm: BrandbookViewModel; urls: AssetUrls }
             onChange={(e) => zoomTo(e.target.value === 'fit' ? 'fit' : Number(e.target.value))}
             className="h-8 rounded-md border border-line-strong bg-panel px-2 font-mono text-xs"
           >
-            <option value="fit">По ширине ({Math.round(fitScale * 100)}%)</option>
+            <option value="fit">{m.fitWidth(Math.round(fitScale * 100))}</option>
             {STEPS.map((s) => (
               <option key={s} value={String(s)}>
                 {Math.round(s * 100)}%
               </option>
             ))}
           </select>
-          <IconButton label="Увеличить" size="sm" onClick={() => zoomTo(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)]!)} disabled={scale >= 1.5 - 0.001}>
+          <IconButton label={m.zoomIn} size="sm" onClick={() => zoomTo(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)]!)} disabled={scale >= 1.5 - 0.001}>
             <Plus size={16} />
           </IconButton>
         </div>
@@ -71,10 +75,10 @@ export function Canvas({ vm, urls }: { vm: BrandbookViewModel; urls: AssetUrls }
       <div ref={container} className="min-h-0 flex-1 overflow-auto p-4">
         {hidden ? (
           <div className="mx-auto mt-10 max-w-sm rounded-lg border border-line bg-panel p-6 text-center">
-            <p className="font-semibold">Раздел «{SECTION_LABELS[view as keyof typeof SECTION_LABELS]}» скрыт</p>
-            <p className="mt-1 text-sm text-muted">Он не попадёт в просмотр и PDF. Настройки раздела сохраняются.</p>
+            <p className="font-semibold">{m.sectionHidden(labels[view as keyof typeof labels])}</p>
+            <p className="mt-1 text-sm text-muted">{m.sectionHiddenHint}</p>
             <Button className="mt-4" onClick={() => apply((p) => setSectionVisible(p, view as never, true))}>
-              Показать раздел
+              {m.showSection}
             </Button>
           </div>
         ) : (

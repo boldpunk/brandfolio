@@ -4,6 +4,8 @@ import { ProjectMissingPage } from '@/app/StatusPages';
 import { buildViewModel } from '@/features/brandbook/viewModel';
 import { useProjectAssets } from '@/features/assets/useProjectAssets';
 import { cn } from '@/lib/cn';
+import { useMessages } from '@/i18n/core';
+import { editorMessages } from '@/i18n/messages/editor';
 import { collectGarbage, getProject, saveAsCopy } from '@/storage/projectRepository';
 import { Canvas } from './Canvas';
 import { ConflictDialog } from './ConflictDialog';
@@ -22,6 +24,7 @@ export default function EditorPage() {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const loadProject = useEditorStore((s) => s.load);
   const unload = useEditorStore((s) => s.unload);
+  const m = useMessages(editorMessages).page;
 
   useEffect(() => {
     let cancelled = false;
@@ -48,11 +51,11 @@ export default function EditorPage() {
   if (load.status === 'error')
     return (
       <div className="mx-auto max-w-xl px-4 py-20">
-        <h1 className="text-2xl font-bold">Не удалось открыть проект</h1>
+        <h1 className="text-2xl font-bold">{m.openFailed}</h1>
         <p className="mt-2 text-muted">{load.message}</p>
       </div>
     );
-  if (load.status === 'loading') return <p className="p-8 text-muted">Открываем проект…</p>;
+  if (load.status === 'loading') return <p className="p-8 text-muted">{m.opening}</p>;
   return <EditorWorkspace key={projectId} projectId={projectId} initialRevision={load.revision} />;
 }
 
@@ -68,6 +71,7 @@ function EditorWorkspace({ projectId, initialRevision }: { projectId: string; in
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [navOpen, setNavOpen] = useState(false);
   const [tab, setTab] = useState<MobileTab>('editor');
+  const m = useMessages(editorMessages).page;
 
   const vm = useMemo(() => (project ? buildViewModel(project, assets.metas) : null), [project, assets.metas]);
   if (!project || !vm) return null;
@@ -95,31 +99,25 @@ function EditorWorkspace({ projectId, initialRevision }: { projectId: string; in
         {desktop ? (
           <div className="relative flex min-h-0 flex-1">
             {wide ? (
-              <aside aria-label="Разделы" className="w-[232px] shrink-0 overflow-y-auto border-r border-line bg-panel">
+              <aside aria-label={m.sectionsAside} className="w-[232px] shrink-0 overflow-y-auto border-r border-line bg-panel">
                 {nav}
               </aside>
             ) : (
               navOpen && (
-                <aside aria-label="Разделы" className="absolute inset-y-0 left-0 z-20 w-[260px] overflow-y-auto border-r border-line bg-panel shadow-sheet">
+                <aside aria-label={m.sectionsAside} className="absolute inset-y-0 left-0 z-20 w-[260px] overflow-y-auto border-r border-line bg-panel shadow-sheet">
                   {nav}
                 </aside>
               )
             )}
             <Canvas vm={vm} urls={assets.urls} />
-            <aside aria-label="Настройки раздела" className="w-[320px] shrink-0 overflow-y-auto border-l border-line bg-panel">
+            <aside aria-label={m.settingsAside} className="w-[320px] shrink-0 overflow-y-auto border-l border-line bg-panel">
               <Inspector />
             </aside>
           </div>
         ) : (
           <>
-            <div role="tablist" aria-label="Панели редактора" className="grid shrink-0 grid-cols-3 border-b border-line bg-panel">
-              {(
-                [
-                  ['sections', 'Разделы'],
-                  ['editor', 'Редактор'],
-                  ['preview', 'Просмотр'],
-                ] as const
-              ).map(([id, label]) => (
+            <div role="tablist" aria-label={m.panels} className="grid shrink-0 grid-cols-3 border-b border-line bg-panel">
+              {(['sections', 'editor', 'preview'] as const).map((id) => (
                 <button
                   key={id}
                   role="tab"
@@ -129,7 +127,7 @@ function EditorWorkspace({ projectId, initialRevision }: { projectId: string; in
                   onClick={() => setTab(id)}
                   className={cn('h-11 border-b-2 text-sm font-semibold', tab === id ? 'border-ink text-ink' : 'border-transparent text-muted')}
                 >
-                  {label}
+                  {m.tabs[id]}
                 </button>
               ))}
             </div>

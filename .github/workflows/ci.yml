@@ -18,5 +18,14 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
+      # Chromium, Firefox and WebKit (the engine of Safari on macOS and every iOS browser).
       - run: npm run test:e2e
+        env:
+          PW_ALL_BROWSERS: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results
+          retention-days: 7

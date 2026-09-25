@@ -5,17 +5,13 @@ import { useNotify } from '@/components/ui/Announcer';
 import { createId } from '@/domain/ids';
 import { IMAGERY_MAX_IMAGES, LIST_LIMITS, TEXT_LIMITS } from '@/domain/limits';
 import { LOGO_VARIANTS, type Asset, type LogoVariantKind, type Project } from '@/domain/schema';
+import { useMessages } from '@/i18n/core';
+import { brandMessages } from '@/i18n/messages/brand';
+import { inspectorMessages } from '@/i18n/messages/inspector';
 import { useEditorAssets } from '../editorAssets';
 import { useBrandUpdater, useEditorStore, useProject } from '../editorStore';
 import { Dropzone } from './Dropzone';
 import { ColorRefSelect, Group, ListEditor, NumberInput, Panel, Text } from './fields';
-
-const VARIANT_INFO: Record<LogoVariantKind, { label: string; hint: string }> = {
-  primary: { label: 'Основной', hint: 'Главная версия логотипа.' },
-  alternative: { label: 'Альтернативный', hint: 'Например, горизонтальная или вертикальная компоновка.' },
-  mark: { label: 'Знак', hint: 'Символ без надписи.' },
-  light: { label: 'Светлая версия', hint: 'Для тёмных фонов. Загрузите отдельный файл: приложение не перекрашивает логотип.' },
-};
 
 const withAsset = (p: Project, asset: Asset): Project => ({ ...p, assetIds: p.assetIds.includes(asset.id) ? p.assetIds : [...p.assetIds, asset.id] });
 
@@ -25,6 +21,10 @@ export function LogoPanel() {
   const update = useBrandUpdater();
   const { urls, metas } = useEditorAssets();
   const notify = useNotify();
+  const brandText = useMessages(brandMessages);
+  const t = useMessages(inspectorMessages);
+  const m = t.logo;
+  const variantLabels = brandText.logoVariants;
   const logo = project.brand.logo;
 
   const setVariant = (kind: LogoVariantKind, asset: Asset | null) =>
@@ -34,27 +34,27 @@ export function LogoPanel() {
     });
 
   return (
-    <Panel title="Логотип" description="Загрузите файлы логотипа. Правила и размеры задаёте вы.">
+    <Panel title={brandText.sections.logo} description={m.description}>
       {LOGO_VARIANTS.map((kind) => {
         const id = logo.variants[kind];
         const meta = id ? metas.get(id) : undefined;
         return (
-          <Group key={kind} title={VARIANT_INFO[kind].label} hint={VARIANT_INFO[kind].hint}>
+          <Group key={kind} title={variantLabels[kind]} hint={m.hints[kind]}>
             {id ? (
               <div className="flex items-center gap-3">
                 <div className={`flex size-20 shrink-0 items-center justify-center rounded-md border border-line p-2 ${kind === 'light' ? 'bg-ink' : 'bg-[repeating-conic-gradient(#eee_0_25%,#fff_0_50%)] bg-[length:12px_12px]'}`}>
-                  {urls.get(id) && <img src={urls.get(id)} alt={`${VARIANT_INFO[kind].label} логотип`} className="max-h-full max-w-full object-contain" />}
+                  {urls.get(id) && <img src={urls.get(id)} alt={m.alt(variantLabels[kind])} className="max-h-full max-w-full object-contain" />}
                 </div>
                 <div className="min-w-0 flex-1 text-xs text-muted">
                   <p className="truncate font-semibold text-ink">{meta?.filename}</p>
                   {meta && (
                     <p className="font-mono">
-                      {meta.width}×{meta.height} · {Math.ceil(meta.byteSize / 1024)} КБ
+                      {meta.width}×{meta.height} · {Math.ceil(meta.byteSize / 1024)} {t.common.kb}
                     </p>
                   )}
-                  {meta?.mimeType === 'image/svg+xml' && <p>SVG очищен; в PDF попадёт растровая копия высокого разрешения.</p>}
+                  {meta?.mimeType === 'image/svg+xml' && <p>{m.svgNote}</p>}
                 </div>
-                <IconButton label={`Удалить: ${VARIANT_INFO[kind].label}`} size="sm" onClick={() => setVariant(kind, null)}>
+                <IconButton label={t.common.remove(variantLabels[kind])} size="sm" onClick={() => setVariant(kind, null)}>
                   <Trash2 size={16} />
                 </IconButton>
               </div>
@@ -62,58 +62,53 @@ export function LogoPanel() {
             <Dropzone
               kind="logo"
               compact={Boolean(id)}
-              label={id ? 'Заменить файл' : 'Выбрать файл'}
+              label={id ? m.replaceFile : m.chooseFile}
               onAdded={(asset, notes) => {
                 setVariant(kind, asset);
-                notify(notes[0] ?? 'Логотип загружен');
+                notify(notes[0] ?? m.uploaded);
               }}
             />
           </Group>
         );
       })}
-      <Group title="Размеры">
+      <Group title={m.sizes}>
         <NumberInput
-          label="Охранное поле"
-          unit="× высоты логотипа"
+          label={m.clearSpace}
+          unit={m.clearSpaceUnit}
           min={0}
           max={2}
           step={0.05}
           value={logo.clearSpace}
           onChange={(clearSpace) => update('logo', { clearSpace: clearSpace ?? 0 })}
-          hint="Например, 0.25 — отступ в четверть высоты логотипа с каждой стороны."
+          hint={m.clearSpaceHint}
         />
         <div className="grid grid-cols-2 gap-3">
-          <NumberInput label="Мин. размер" unit="px" min={0} max={2000} step={1} allowEmpty value={logo.minSizePx} onChange={(minSizePx) => update('logo', { minSizePx: minSizePx === null ? null : Math.round(minSizePx) })} />
-          <NumberInput label="Мин. размер" unit="мм" min={0} max={500} step={0.5} allowEmpty value={logo.minSizeMm} onChange={(minSizeMm) => update('logo', { minSizeMm })} />
+          <NumberInput label={m.minSize} unit="px" min={0} max={2000} step={1} allowEmpty value={logo.minSizePx} onChange={(minSizePx) => update('logo', { minSizePx: minSizePx === null ? null : Math.round(minSizePx) })} />
+          <NumberInput label={m.minSize} unit={m.mm} min={0} max={500} step={0.5} allowEmpty value={logo.minSizeMm} onChange={(minSizeMm) => update('logo', { minSizeMm })} />
         </div>
       </Group>
-      <Group title="Правила">
-        <Text label="Правила использования" multiline maxLength={TEXT_LIMITS.longText} value={logo.usageRules} onChange={(usageRules) => update('logo', { usageRules }, 'logo.usageRules')} />
-        <ListEditor label="Допустимо" itemLabel="Пункт" items={logo.doRules} max={LIST_LIMITS.logoDoDont} onChange={(doRules) => update('logo', { doRules })} />
-        <ListEditor label="Недопустимо" itemLabel="Пункт" items={logo.dontRules} max={LIST_LIMITS.logoDoDont} onChange={(dontRules) => update('logo', { dontRules })} />
+      <Group title={m.rules}>
+        <Text label={m.usageRules} multiline maxLength={TEXT_LIMITS.longText} value={logo.usageRules} onChange={(usageRules) => update('logo', { usageRules }, 'logo.usageRules')} />
+        <ListEditor label={m.allowed} itemLabel={m.item} items={logo.doRules} max={LIST_LIMITS.logoDoDont} onChange={(doRules) => update('logo', { doRules })} />
+        <ListEditor label={m.forbidden} itemLabel={m.item} items={logo.dontRules} max={LIST_LIMITS.logoDoDont} onChange={(dontRules) => update('logo', { dontRules })} />
       </Group>
-      <Group title="Иллюстрации ошибок" hint="Показываются с подписью «Недопустимо».">
-        {(
-          [
-            ['stretch', 'Растяжение'],
-            ['rotate', 'Наклон'],
-            ['busyBackground', 'Пёстрый фон'],
-          ] as const
-        ).map(([key, label]) => (
+      <Group title={m.misuseTitle} hint={m.misuseHint}>
+        {(['stretch', 'rotate', 'busyBackground'] as const).map((key) => (
           <label key={key} className="flex items-center gap-2 text-sm">
             <input type="checkbox" className="size-4 accent-ink" checked={logo.misuse[key]} onChange={(e) => update('logo', { misuse: { ...logo.misuse, [key]: e.target.checked } })} />
-            {label}
+            {m.misuse[key]}
           </label>
         ))}
       </Group>
-      <Group title="Фон для примера">
-        <ColorRefSelect label="Фирменный фон" value={logo.previewColorId} onChange={(previewColorId) => update('logo', { previewColorId })} autoLabel="Основной цвет" />
+      <Group title={m.previewTitle}>
+        <ColorRefSelect label={m.previewColor} value={logo.previewColorId} onChange={(previewColorId) => update('logo', { previewColorId })} autoLabel={m.primaryColor} />
       </Group>
     </Panel>
   );
 }
 
 function FocalPicker({ url, x, y, onChange, label }: { url: string | undefined; x: number; y: number; onChange: (x: number, y: number) => void; label: string }) {
+  const m = useMessages(inspectorMessages).imagery;
   const pick = (event: MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     onChange(Math.round(((event.clientX - rect.left) / rect.width) * 100), Math.round(((event.clientY - rect.top) / rect.height) * 100));
@@ -130,8 +125,8 @@ function FocalPicker({ url, x, y, onChange, label }: { url: string | undefined; 
     <div
       role="slider"
       tabIndex={0}
-      aria-label={`${label}: точка фокуса. Стрелки двигают точку`}
-      aria-valuetext={`${x}% по горизонтали, ${y}% по вертикали`}
+      aria-label={m.focalLabel(label)}
+      aria-valuetext={m.focalValue(x, y)}
       aria-valuenow={x}
       onClick={pick}
       onKeyDown={onKey}
@@ -148,23 +143,26 @@ export function ImageryPanel() {
   const apply = useEditorStore((s) => s.apply);
   const update = useBrandUpdater();
   const { urls } = useEditorAssets();
+  const sections = useMessages(brandMessages).sections;
+  const t = useMessages(inspectorMessages);
+  const m = t.imagery;
   const im = project.brand.imagery;
   const setImages = (images: typeof im.images, key?: string) => update('imagery', { images }, key);
 
   return (
-    <Panel title="Стиль изображений" description={`До ${IMAGERY_MAX_IMAGES} изображений с подписями. Кадрирование задаётся точкой фокуса, исходный файл не меняется.`}>
+    <Panel title={sections.imagery} description={m.description(IMAGERY_MAX_IMAGES)}>
       {im.images.map((img, index) => (
-        <Group key={img.id} title={`Изображение ${index + 1}`}>
-          <FocalPicker url={urls.get(img.assetId)} x={img.focalX} y={img.focalY} label={`Изображение ${index + 1}`} onChange={(focalX, focalY) => setImages(im.images.map((x) => (x.id === img.id ? { ...x, focalX, focalY } : x)), `imagery.focal.${img.id}`)} />
-          <Text label="Подпись" maxLength={TEXT_LIMITS.caption} value={img.caption} onChange={(caption) => setImages(im.images.map((x) => (x.id === img.id ? { ...x, caption } : x)), `imagery.caption.${img.id}`)} />
+        <Group key={img.id} title={m.image(index + 1)}>
+          <FocalPicker url={urls.get(img.assetId)} x={img.focalX} y={img.focalY} label={m.image(index + 1)} onChange={(focalX, focalY) => setImages(im.images.map((x) => (x.id === img.id ? { ...x, focalX, focalY } : x)), `imagery.focal.${img.id}`)} />
+          <Text label={m.caption} maxLength={TEXT_LIMITS.caption} value={img.caption} onChange={(caption) => setImages(im.images.map((x) => (x.id === img.id ? { ...x, caption } : x)), `imagery.caption.${img.id}`)} />
           <div className="flex gap-1">
-            <IconButton label={`Выше: изображение ${index + 1}`} size="sm" disabled={index === 0} onClick={() => setImages(swap(im.images, index, -1))}>
+            <IconButton label={t.common.moveUp(m.imageLower(index + 1))} size="sm" disabled={index === 0} onClick={() => setImages(swap(im.images, index, -1))}>
               <ChevronUp size={16} />
             </IconButton>
-            <IconButton label={`Ниже: изображение ${index + 1}`} size="sm" disabled={index === im.images.length - 1} onClick={() => setImages(swap(im.images, index, 1))}>
+            <IconButton label={t.common.moveDown(m.imageLower(index + 1))} size="sm" disabled={index === im.images.length - 1} onClick={() => setImages(swap(im.images, index, 1))}>
               <ChevronDown size={16} />
             </IconButton>
-            <IconButton label={`Удалить изображение ${index + 1}`} size="sm" onClick={() => setImages(im.images.filter((x) => x.id !== img.id))}>
+            <IconButton label={m.removeImage(index + 1)} size="sm" onClick={() => setImages(im.images.filter((x) => x.id !== img.id))}>
               <Trash2 size={16} />
             </IconButton>
           </div>
@@ -173,7 +171,7 @@ export function ImageryPanel() {
       {im.images.length < IMAGERY_MAX_IMAGES ? (
         <Dropzone
           kind="image"
-          label="Добавить изображение"
+          label={m.add}
           onAdded={(asset) =>
             apply((p) => {
               const next = withAsset(p, asset);
@@ -183,13 +181,13 @@ export function ImageryPanel() {
           }
         />
       ) : (
-        <p className="text-xs text-muted">Добавлено максимальное число изображений ({IMAGERY_MAX_IMAGES}).</p>
+        <p className="text-xs text-muted">{m.full(IMAGERY_MAX_IMAGES)}</p>
       )}
-      <Group title="Правила">
-        <Text label="Свет" multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.lighting} onChange={(lighting) => update('imagery', { lighting }, 'imagery.lighting')} />
-        <Text label="Композиция" multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.composition} onChange={(composition) => update('imagery', { composition }, 'imagery.composition')} />
-        <Text label="Обработка" multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.processing} onChange={(processing) => update('imagery', { processing }, 'imagery.processing')} />
-        <Text label="Нежелательные приёмы" multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.avoid} onChange={(avoid) => update('imagery', { avoid }, 'imagery.avoid')} />
+      <Group title={m.rules}>
+        <Text label={m.lighting} multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.lighting} onChange={(lighting) => update('imagery', { lighting }, 'imagery.lighting')} />
+        <Text label={m.composition} multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.composition} onChange={(composition) => update('imagery', { composition }, 'imagery.composition')} />
+        <Text label={m.processing} multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.processing} onChange={(processing) => update('imagery', { processing }, 'imagery.processing')} />
+        <Text label={m.avoid} multiline rows={3} maxLength={TEXT_LIMITS.longText} value={im.avoid} onChange={(avoid) => update('imagery', { avoid }, 'imagery.avoid')} />
       </Group>
     </Panel>
   );

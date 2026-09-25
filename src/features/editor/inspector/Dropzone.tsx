@@ -2,6 +2,8 @@ import { Upload } from 'lucide-react';
 import { useId, useRef, useState, type DragEvent } from 'react';
 import type { Asset, AssetKind } from '@/domain/schema';
 import { ingestFile } from '@/features/assets/ingest';
+import { useMessages } from '@/i18n/core';
+import { inspectorMessages } from '@/i18n/messages/inspector';
 import { cn } from '@/lib/cn';
 import { putAsset } from '@/storage/projectRepository';
 import { useProject } from '../editorStore';
@@ -18,6 +20,7 @@ export function Dropzone({ kind, label, onAdded, compact }: { kind: AssetKind; l
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const errorId = useId();
+  const m = useMessages(inspectorMessages).upload;
   const accept = kind === 'logo' ? 'image/png,image/jpeg,image/svg+xml,.svg' : 'image/png,image/jpeg';
 
   async function handle(file: File | undefined) {
@@ -30,7 +33,7 @@ export function Dropzone({ kind, label, onAdded, compact }: { kind: AssetKind; l
       await putAsset(result.asset);
       onAdded(result.asset, result.notes);
     } catch (e) {
-      setError(`Не удалось сохранить файл: ${e instanceof Error ? e.message : e}`);
+      setError(m.saveFailed(e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';
@@ -66,9 +69,9 @@ export function Dropzone({ kind, label, onAdded, compact }: { kind: AssetKind; l
           aria-describedby={error ? errorId : undefined}
           className="inline-flex h-9 items-center gap-2 rounded-md border border-line-strong bg-panel px-3 text-sm font-semibold hover:bg-paper"
         >
-          <Upload size={16} /> {busy ? 'Проверяем файл…' : label}
+          <Upload size={16} /> {busy ? m.checking : label}
         </button>
-        {!compact && <span className="text-xs text-muted">или перетащите файл сюда · {kind === 'logo' ? 'PNG, JPEG, SVG' : 'PNG, JPEG'} до 5 МиБ</span>}
+        {!compact && <span className="text-xs text-muted">{m.dropHint(kind === 'logo' ? 'PNG, JPEG, SVG' : 'PNG, JPEG')}</span>}
         <input ref={input} type="file" accept={accept} className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => void handle(e.target.files?.[0])} />
       </div>
       {error && (

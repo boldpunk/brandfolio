@@ -13,5 +13,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // Tests assert Russian messages; Node reports en-US as the browser language.
+    setupFiles: ['src/tests/setup.ts'],
   },
 })

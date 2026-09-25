@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+# Editor and preview pages only show projects stored in the visitor's own browser.
+Disallow: /editor/
+Disallow: /preview/
+
+Sitemap: https://brandfolio.uz/sitemap.xml

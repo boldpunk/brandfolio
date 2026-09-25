@@ -5,6 +5,8 @@ import { FieldShell, SelectField, TextAreaField, TextField, controlClass } from 
 import { FONT_FAMILIES } from '@/domain/fonts';
 import { TEXT_LIMITS } from '@/domain/limits';
 import { projectSchema, type Project } from '@/domain/schema';
+import { useMessages } from '@/i18n/core';
+import { inspectorMessages } from '@/i18n/messages/inspector';
 import { cn } from '@/lib/cn';
 import { useProject } from '../editorStore';
 
@@ -22,14 +24,15 @@ export function useFieldErrors(): ReadonlyMap<string, string> {
 /** Characters the chosen fonts cannot render, found in the given texts. */
 export function useMissingGlyphWarning(texts: string[]): string | null {
   const project = useProject();
+  const m = useMessages(inspectorMessages).common;
   return useMemo(() => {
     const families = new Set(Object.values(project.brand.typography).map((t) => t.familyId));
     const missing = new Set<string>();
     for (const family of families) for (const ch of FONT_FAMILIES[family].missingGlyphs) if (texts.some((t) => t.includes(ch))) missing.add(ch);
     return missing.size
-      ? `Символ ${[...missing].map((c) => `«${c}» (U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')})`).join(', ')} отсутствует в выбранном шрифте. Для узбекской латиницы используйте «‘» (U+2018) или выберите Noto Sans / Noto Serif.`
+      ? m.missingGlyphs([...missing].map((c) => `«${c}» (U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')})`).join(', '))
       : null;
-  }, [project.brand.typography, texts]);
+  }, [project.brand.typography, texts, m]);
 }
 
 export function Panel({ title, children, description }: { title: string; description?: ReactNode; children: ReactNode }) {
@@ -97,6 +100,7 @@ export function NumberInput({
 }) {
   const [draft, setDraft] = useState(value === null ? '' : String(value));
   const [error, setError] = useState<string | null>(null);
+  const m = useMessages(inspectorMessages).common;
   useEffect(() => {
     setDraft(value === null ? '' : String(value));
     setError(null);
@@ -108,12 +112,12 @@ export function NumberInput({
       if (allowEmpty) {
         setError(null);
         onChange(null);
-      } else setError('Введите число');
+      } else setError(m.enterNumber);
       return;
     }
     const n = Number(text);
-    if (!Number.isFinite(n)) return setError('Введите число');
-    if (n < min || n > max) return setError(`Допустимо от ${min} до ${max}`);
+    if (!Number.isFinite(n)) return setError(m.enterNumber);
+    if (n < min || n > max) return setError(m.range(min, max));
     setError(null);
     if (n !== value) onChange(n);
   };
@@ -138,16 +142,17 @@ export function NumberInput({
   );
 }
 
-export function ColorRefSelect({ label, value, onChange, autoLabel = 'Автоматически', hint }: { label: string; value: string | null; onChange: (id: string | null) => void; autoLabel?: string; hint?: ReactNode }) {
+export function ColorRefSelect({ label, value, onChange, autoLabel, hint }: { label: string; value: string | null; onChange: (id: string | null) => void; autoLabel?: string; hint?: ReactNode }) {
   const project = useProject();
+  const m = useMessages(inspectorMessages).common;
   const current = project.brand.colors.find((c) => c.id === value);
   return (
     <div className="flex items-end gap-2">
       <SelectField label={label} hint={hint} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)} className="flex-1">
-        <option value="">{autoLabel}</option>
+        <option value="">{autoLabel ?? m.auto}</option>
         {project.brand.colors.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name || 'Без названия'} · {c.hex}
+            {c.name || m.untitled} · {c.hex}
           </option>
         ))}
       </SelectField>
@@ -158,6 +163,7 @@ export function ColorRefSelect({ label, value, onChange, autoLabel = 'Автом
 
 /** Editable list of short texts with add, remove and reorder buttons. */
 export function ListEditor({ label, items, onChange, max, itemLabel, maxLength = TEXT_LIMITS.listItem, hint }: { label: string; items: string[]; onChange: (items: string[]) => void; max: number; itemLabel: string; maxLength?: number; hint?: ReactNode }) {
+  const m = useMessages(inspectorMessages).common;
   const set = (index: number, value: string) => onChange(items.map((item, i) => (i === index ? value : item)));
   const move = (index: number, dir: -1 | 1) => {
     const next = [...items];
@@ -173,7 +179,7 @@ export function ListEditor({ label, items, onChange, max, itemLabel, maxLength =
         </span>
       </div>
       {hint && <p className="text-xs text-muted">{hint}</p>}
-      {items.length === 0 && <p className="rounded-md border border-dashed border-line-strong p-3 text-xs text-muted">Пока пусто.</p>}
+      {items.length === 0 && <p className="rounded-md border border-dashed border-line-strong p-3 text-xs text-muted">{m.empty}</p>}
       <ol className="flex flex-col gap-2">
         {items.map((item, index) => (
           <li key={index} className="flex items-start gap-1">
@@ -181,13 +187,13 @@ export function ListEditor({ label, items, onChange, max, itemLabel, maxLength =
               <TextField label={`${itemLabel} ${index + 1}`} value={item} maxLength={maxLength} onChange={(e) => set(index, e.target.value)} />
             </div>
             <div className="mt-7 flex">
-              <IconButton label={`Выше: ${itemLabel.toLowerCase()} ${index + 1}`} size="sm" disabled={index === 0} onClick={() => move(index, -1)}>
+              <IconButton label={m.moveUp(`${itemLabel.toLowerCase()} ${index + 1}`)} size="sm" disabled={index === 0} onClick={() => move(index, -1)}>
                 <ChevronUp size={14} />
               </IconButton>
-              <IconButton label={`Ниже: ${itemLabel.toLowerCase()} ${index + 1}`} size="sm" disabled={index === items.length - 1} onClick={() => move(index, 1)}>
+              <IconButton label={m.moveDown(`${itemLabel.toLowerCase()} ${index + 1}`)} size="sm" disabled={index === items.length - 1} onClick={() => move(index, 1)}>
                 <ChevronDown size={14} />
               </IconButton>
-              <IconButton label={`Удалить: ${itemLabel.toLowerCase()} ${index + 1}`} size="sm" onClick={() => onChange(items.filter((_, i) => i !== index))}>
+              <IconButton label={m.remove(`${itemLabel.toLowerCase()} ${index + 1}`)} size="sm" onClick={() => onChange(items.filter((_, i) => i !== index))}>
                 <Trash2 size={14} />
               </IconButton>
             </div>
@@ -195,7 +201,7 @@ export function ListEditor({ label, items, onChange, max, itemLabel, maxLength =
         ))}
       </ol>
       <Button size="sm" icon={<Plus size={14} />} disabled={items.length >= max} onClick={() => onChange([...items, ''])} className="self-start">
-        Добавить
+        {m.add}
       </Button>
     </div>
   );

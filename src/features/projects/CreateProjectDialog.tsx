@@ -1,37 +1,51 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
-import { TextField } from '@/components/ui/Field';
+import { SelectField, TextField } from '@/components/ui/Field';
 import { TEXT_LIMITS } from '@/domain/limits';
 import { createEmptyProject } from '@/domain/project';
 import type { TemplateId } from '@/domain/schema';
-import { TEMPLATE_INFO } from '@/templates/templateInfo';
+import { LOCALE_NAMES, LOCALE_TAGS, LOCALES, isLocale, useLocale, useMessages, type Locale } from '@/i18n/core';
+import { projectsMessages } from '@/i18n/messages/projects';
+import { validationMessages } from '@/i18n/messages/validation';
 import { cn } from '@/lib/cn';
 import { useUiSettings } from '@/lib/uiSettings';
 import { createProject } from '@/storage/projectRepository';
+import { useTemplateInfo } from '@/templates/templateInfo';
+import { track } from '@/lib/analytics';
 
 export function CreateProjectDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; onCreated: (id: string) => void }) {
   const { defaultTemplate } = useUiSettings();
   const [title, setTitle] = useState('');
   const [template, setTemplate] = useState<TemplateId>(defaultTemplate);
+  const interfaceLocale = useLocale();
+  // null follows the interface language until the user picks one.
+  const [pickedLanguage, setPickedLanguage] = useState<Locale | null>(null);
+  const language = pickedLanguage ?? interfaceLocale;
+  const texts = useMessages(projectsMessages);
+  const m = texts.createDialog;
+  const templates = useTemplateInfo();
+  const v = useMessages(validationMessages);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const name = title.trim();
-    if (!name) return setError('Введите название проекта');
-    if (name.length > TEXT_LIMITS.title) return setError(`Не длиннее ${TEXT_LIMITS.title} символов`);
+    if (!name) return setError(v.titleRequired);
+    if (name.length > TEXT_LIMITS.title) return setError(v.maxChars(TEXT_LIMITS.title));
     setBusy(true);
     try {
-      const project = createEmptyProject(name, template);
+      const project = createEmptyProject(name, template, new Date(), language);
+      track('project_created', { template, language });
       project.brand.cover.title = name;
       await createProject(project);
       onOpenChange(false);
       setTitle('');
+      setPickedLanguage(null);
       onCreated(project.id);
     } catch (e) {
-      setError(`Не удалось сохранить проект: ${e instanceof Error ? e.message : e}`);
+      setError(m.saveFailed(e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
@@ -41,12 +55,12 @@ export function CreateProjectDialog({ open, onOpenChange, onCreated }: { open: b
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Новый брендбук"
-      description="Проект создаётся пустым. Все тексты, цвета и файлы вы добавите сами в редакторе."
+      title={m.title}
+      description={m.description}
     >
       <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
         <TextField
-          label="Название бренда"
+          label={m.name}
           value={title}
           maxLength={TEXT_LIMITS.title}
           error={error}
@@ -57,11 +71,23 @@ export function CreateProjectDialog({ open, onOpenChange, onCreated }: { open: b
           autoFocus
           autoComplete="off"
         />
+        <SelectField
+          label={m.language}
+          hint={m.languageHint}
+          value={language}
+          onChange={(e) => isLocale(e.target.value) && setPickedLanguage(e.target.value)}
+        >
+          {LOCALES.map((l) => (
+            <option key={l} value={l} lang={LOCALE_TAGS[l]}>
+              {LOCALE_NAMES[l]}
+            </option>
+          ))}
+        </SelectField>
         <fieldset>
-          <legend className="text-sm font-semibold">Оформление</legend>
-          <p className="mt-1 text-xs text-muted">Его можно сменить в любой момент, данные при этом сохраняются.</p>
+          <legend className="text-sm font-semibold">{m.template}</legend>
+          <p className="mt-1 text-xs text-muted">{m.templateHint}</p>
           <div className="mt-2 grid gap-2">
-            {TEMPLATE_INFO.map((info) => (
+            {templates.map((info) => (
               <label
                 key={info.id}
                 className={cn(
@@ -79,9 +105,9 @@ export function CreateProjectDialog({ open, onOpenChange, onCreated }: { open: b
           </div>
         </fieldset>
         <div className="flex justify-end gap-2">
-          <Button onClick={() => onOpenChange(false)}>Отмена</Button>
+          <Button onClick={() => onOpenChange(false)}>{texts.cancel}</Button>
           <Button type="submit" variant="primary" disabled={busy}>
-            {busy ? 'Создаём…' : 'Создать'}
+            {busy ? m.creating : m.create}
           </Button>
         </div>
       </form>

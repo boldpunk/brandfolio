@@ -12,6 +12,13 @@
  * suggest exporting a PNG.
  */
 import { ASSET_LIMITS } from '@/domain/limits';
+import { msg } from '@/i18n/core';
+import { assetsMessages } from '@/i18n/messages/assets';
+
+type SvgMessages = (typeof assetsMessages)['ru']['svg'];
+
+/** Refusal texts in the interface language, read at call time. */
+const text = (): SvgMessages => msg(assetsMessages).svg;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
@@ -42,22 +49,22 @@ const ALLOWED_ELEMENTS = new Set([
 const DROPPED_ELEMENTS = new Set(['metadata', 'script', 'sodipodi:namedview', 'namedview']);
 
 /** Elements that change the drawing but are outside the supported set. */
-const UNSUPPORTED_EXPLANATIONS: Record<string, string> = {
-  text: 'текст (переведите текст в кривые)',
-  tspan: 'текст (переведите текст в кривые)',
-  textPath: 'текст (переведите текст в кривые)',
-  image: 'встроенное растровое изображение',
+const UNSUPPORTED_EXPLANATIONS: Record<string, keyof SvgMessages['features']> = {
+  text: 'text',
+  tspan: 'text',
+  textPath: 'text',
+  image: 'image',
   foreignObject: 'foreignObject',
-  style: 'CSS-стили в теге <style>',
-  filter: 'фильтры и эффекты',
-  pattern: 'заливка узором',
-  marker: 'маркеры линий',
-  animate: 'анимация',
-  animateTransform: 'анимация',
-  animateMotion: 'анимация',
-  set: 'анимация',
-  iframe: 'встроенный документ',
-  a: 'ссылки',
+  style: 'style',
+  filter: 'filter',
+  pattern: 'pattern',
+  marker: 'marker',
+  animate: 'animation',
+  animateTransform: 'animation',
+  animateMotion: 'animation',
+  set: 'animation',
+  iframe: 'iframe',
+  a: 'links',
 };
 
 const GEOMETRY_ATTRS = [
@@ -91,26 +98,27 @@ export function sanitizeSvg(source: string): SanitizeResult {
     return { ok: true, ...sanitizeOrThrow(source) };
   } catch (error) {
     if (error instanceof Refusal) return { ok: false, reason: error.message };
-    return { ok: false, reason: 'Не удалось прочитать SVG. Сохраните логотип как PNG и загрузите его.' };
+    return { ok: false, reason: text().unreadable };
   }
 }
 
 function sanitizeOrThrow(source: string) {
   const byteSize = new TextEncoder().encode(source).length;
   if (byteSize > ASSET_LIMITS.svgMaxBytes) {
-    throw new Refusal('SVG больше 1 МиБ. Упростите файл или загрузите PNG.');
+    throw new Refusal(text().tooBig);
   }
   // DOCTYPE can declare entities (billion laughs, external entities). Refuse before parsing.
   if (/<!DOCTYPE|<!ENTITY/i.test(source)) {
-    throw new Refusal('SVG содержит DOCTYPE или сущности, такие файлы не принимаются. Пересохраните его без DOCTYPE или загрузите PNG.');
+    throw new Refusal(text().doctype);
   }
 
   const parsed = new DOMParser().parseFromString(source, 'image/svg+xml');
   const root = parsed.documentElement;
   if (parsed.getElementsByTagName('parsererror').length > 0 || root.localName !== 'svg' || root.namespaceURI !== SVG_NS) {
-    throw new Refusal('Файл повреждён или не является SVG.');
+    throw new Refusal(text().notSvg);
   }
 
+  const t = text();
   const unsupported = new Set<string>();
   const removed = new Set<string>();
   const ids = new Set<string>();
@@ -120,7 +128,7 @@ function sanitizeOrThrow(source: string) {
   const outRoot = out.documentElement;
 
   const copyElement = (src: Element, dst: Element, depth: number) => {
-    if (depth > ASSET_LIMITS.svgMaxDepth) throw new Refusal('SVG слишком глубоко вложен. Упростите файл или загрузите PNG.');
+    if (depth > ASSET_LIMITS.svgMaxDepth) throw new Refusal(t.tooDeep);
     copyAttributes(src, dst);
     for (const child of Array.from(src.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
@@ -131,7 +139,7 @@ function sanitizeOrThrow(source: string) {
       if (child.nodeType !== Node.ELEMENT_NODE) continue; // comments, CDATA, processing instructions
       const el = child as Element;
       if (++elementCount > ASSET_LIMITS.svgMaxElements) {
-        throw new Refusal(`В SVG больше ${ASSET_LIMITS.svgMaxElements} элементов. Упростите файл или загрузите PNG.`);
+        throw new Refusal(t.tooManyElements(ASSET_LIMITS.svgMaxElements));
       }
       const name = el.namespaceURI === SVG_NS ? el.localName : el.nodeName;
       if (el.namespaceURI !== SVG_NS || DROPPED_ELEMENTS.has(name)) {
@@ -139,7 +147,8 @@ function sanitizeOrThrow(source: string) {
         continue;
       }
       if (!ALLOWED_ELEMENTS.has(name)) {
-        unsupported.add(UNSUPPORTED_EXPLANATIONS[name] ?? `элемент <${name}>`);
+        const feature = UNSUPPORTED_EXPLANATIONS[name];
+        unsupported.add(feature ? t.features[feature] : t.element(name));
         continue;
       }
       const copy = out.createElementNS(SVG_NS, name);
@@ -153,16 +162,16 @@ function sanitizeOrThrow(source: string) {
       const name = attr.name;
       const value = attr.value;
       if (/^on/i.test(attr.localName)) {
-        removed.add(`обработчик ${attr.localName}`);
+        removed.add(t.handler(attr.localName));
         continue;
       }
       if (name.startsWith('xmlns')) continue;
       if (!ALLOWED_ATTRS.has(name)) {
-        removed.add(`атрибут ${name}`);
+        removed.add(t.attribute(name));
         continue;
       }
       if (name === 'href' || name === 'xlink:href') {
-        if (!/^#[A-Za-z_][\w.-]*$/.test(value)) throw new Refusal('SVG ссылается на внешние ресурсы. Такие ссылки не поддерживаются, загрузите PNG.');
+        if (!/^#[A-Za-z_][\w.-]*$/.test(value)) throw new Refusal(t.externalRefs);
         dst.setAttributeNS(XLINK_NS, 'xlink:href', value);
         dst.setAttribute('href', value);
         continue;
@@ -190,11 +199,11 @@ function sanitizeOrThrow(source: string) {
       const value = declaration.slice(index + 1).trim();
       if (!prop || !value) continue;
       if (/[\\@<>]|expression\s*\(|image-set|-moz-binding/i.test(value)) {
-        throw new Refusal('SVG содержит небезопасные CSS-выражения. Загрузите PNG.');
+        throw new Refusal(t.unsafeCss);
       }
       checkUrlReferences(value);
       if (!ALLOWED_STYLE_PROPS.has(prop)) {
-        if (prop.startsWith('font') || prop === 'filter') unsupported.add(prop === 'filter' ? 'фильтры и эффекты' : 'текстовые стили');
+        if (prop.startsWith('font') || prop === 'filter') unsupported.add(prop === 'filter' ? t.features.filter : t.features.textStyles);
         continue;
       }
       kept.push(`${prop}:${value}`);
@@ -205,16 +214,14 @@ function sanitizeOrThrow(source: string) {
   copyElement(root, outRoot, 0);
 
   if (unsupported.size > 0) {
-    throw new Refusal(
-      `В SVG есть то, что Brandfolio не может безопасно сохранить: ${[...unsupported].join(', ')}. Экспортируйте логотип в PNG с прозрачным фоном и загрузите его.`,
-    );
+    throw new Refusal(t.unsupported([...unsupported].join(', ')));
   }
 
   // Internal url(#id) references must point to elements that survived.
   const serialized = new XMLSerializer().serializeToString(out);
   for (const match of serialized.matchAll(/url\(\s*['"]?#([^)'"\s]+)['"]?\s*\)|href="#([^"]+)"/g)) {
     const id = match[1] ?? match[2];
-    if (id && !ids.has(id)) throw new Refusal('SVG ссылается на отсутствующие элементы. Пересохраните файл или загрузите PNG.');
+    if (id && !ids.has(id)) throw new Refusal(t.missingRefs);
   }
 
   const { width, height } = intrinsicSize(outRoot);
@@ -230,7 +237,7 @@ function checkUrlReferences(value: string) {
   const urls = value.match(/url\s*\(([^)]*)\)/gi) ?? [];
   for (const url of urls) {
     if (!/^url\(\s*['"]?#[A-Za-z_][\w.-]*['"]?\s*\)$/i.test(url)) {
-      throw new Refusal('SVG ссылается на внешние ресурсы через url(). Такие ссылки не поддерживаются, загрузите PNG.');
+      throw new Refusal(text().externalUrl);
     }
   }
 }
@@ -242,9 +249,9 @@ function intrinsicSize(svg: Element): { width: number; height: number } {
   const width = parseLength(svg.getAttribute('width')) ?? vbWidth;
   const height = parseLength(svg.getAttribute('height')) ?? vbHeight;
   if (!width || !height || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    throw new Refusal('У SVG нет размеров или viewBox. Добавьте viewBox или загрузите PNG.');
+    throw new Refusal(text().noSize);
   }
-  if (width * height > ASSET_LIMITS.maxPixels) throw new Refusal('Размер SVG больше 20 мегапикселей.');
+  if (width * height > ASSET_LIMITS.maxPixels) throw new Refusal(text().tooManyPixels);
   return { width: Math.round(width * 100) / 100, height: Math.round(height * 100) / 100 };
 }
 

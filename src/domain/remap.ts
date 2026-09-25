@@ -1,3 +1,5 @@
+import { msg } from '@/i18n/core';
+import { validationMessages } from '@/i18n/messages/validation';
 import { createId } from './ids';
 import type { Project } from './schema';
 
@@ -9,7 +11,7 @@ import type { Project } from './schema';
 export function remapProject(project: Project, newProjectId: string, assetIdMap: ReadonlyMap<string, string>): Project {
   const mapAsset = (id: string): string => {
     const next = assetIdMap.get(id);
-    if (!next) throw new Error(`Нет нового ID для ассета ${id}`);
+    if (!next) throw new Error(msg(validationMessages).noNewAssetId(id));
     return next;
   };
   const mapNullableAsset = (id: string | null) => (id === null ? null : mapAsset(id));

@@ -1,3 +1,6 @@
+import { msg } from '@/i18n/core';
+import { assetsMessages } from '@/i18n/messages/assets';
+
 /**
  * Renders a sanitized SVG to a PNG Blob for the PDF, where react-pdf's own SVG
  * support is too limited to be faithful. The sanitized SVG stays the source of
@@ -17,10 +20,10 @@ export async function rasterizeSvg(svg: string, longSidePx = 1600): Promise<Blob
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D недоступен');
+    if (!ctx) throw new Error(msg(assetsMessages).canvasUnavailable);
     ctx.drawImage(image, 0, 0, width, height);
     return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Не удалось создать PNG'))), 'image/png'),
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(msg(assetsMessages).pngFailed))), 'image/png'),
     );
   } finally {
     URL.revokeObjectURL(url);

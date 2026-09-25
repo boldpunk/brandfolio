@@ -1,0 +1,141 @@
+/** Settings page: storage, backups, interface preferences. */
+import { defineMessages } from '../core';
+
+export const settingsMessages = defineMessages({
+  ru: {
+    heading: 'Настройки',
+    storage: {
+      heading: 'Где хранятся проекты',
+      p1: 'Brandfolio работает без учётной записи и сервера. Проекты, логотипы и изображения сохраняются в хранилище этого браузера (IndexedDB) на этом устройстве. В другом браузере, на другом устройстве или в приватном окне их не будет.',
+      p2Before:
+        'Синхронизации нет, и сохранность не гарантирована: очистка данных сайта, удаление браузера или нехватка места могут стереть проекты. Надёжный способ сохранить работу — регулярно скачивать архив проекта ',
+      p2After: '. Его можно импортировать обратно в любом браузере.',
+      usage: 'Занято данными сайта',
+      unknown: 'неизвестно',
+      persistence: 'Постоянное хранение',
+      notSupported: 'не поддерживается',
+      enabled: 'включено браузером',
+      notEnabled: 'не включено',
+      requestPersist: 'Попросить браузер не удалять данные',
+      persistGranted:
+        'Браузер отметил данные сайта как постоянные: он не будет удалять их сам при нехватке места. Очистка данных вручную всё равно их сотрёт.',
+      persistDenied:
+        'Браузер отклонил запрос. Это обычное решение браузера, а не ошибка. Данные сохраняются, но при нехватке места браузер может их удалить, поэтому держите резервные архивы.',
+      persistUnsupported: 'Этот браузер не поддерживает запрос постоянного хранения.',
+      units: { gb: 'ГБ', mb: 'МБ', kb: 'КБ' },
+    },
+    backup: {
+      heading: 'Резервные копии',
+      textBefore:
+        'Резервная копия — это архив проекта с документом, логотипами, изображениями и токенами. Чтобы восстановить проект, откройте',
+      link: 'Проекты',
+      textAfter: 'и нажмите «Импорт архива»: он создаст новый проект и не изменит существующие.',
+      listFailed: 'Не удалось прочитать список проектов из хранилища браузера.',
+      notFound: 'проект не найден, возможно, его удалили в другой вкладке.',
+      downloaded: (title: string) => `Архив проекта «${title}» скачан.`,
+      failed: (message: string) => `Архив не создан: ${message}`,
+      none: 'Пока нет проектов для резервного копирования.',
+      updated: (date: string) => `Изменён ${date}`,
+      downloadLabel: (title: string) => `Скачать архив проекта ${title}`,
+      busy: 'Собираем…',
+      download: 'Скачать архив',
+    },
+    ui: {
+      heading: 'Интерфейс',
+      language: 'Язык интерфейса',
+      languageHint: 'Язык документа задаётся в каждом проекте отдельно.',
+      defaultTemplate: 'Оформление для новых проектов',
+      showNotice: 'Снова показать подсказку о хранении',
+    },
+  },
+  uz: {
+    heading: 'Sozlamalar',
+    storage: {
+      heading: 'Loyihalar qayerda saqlanadi',
+      p1: 'Brandfolio hisob qaydnomasi va serversiz ishlaydi. Loyihalar, logotiplar va tasvirlar shu qurilmadagi shu brauzer xotirasida (IndexedDB) saqlanadi. Boshqa brauzerda, boshqa qurilmada yoki maxfiy oynada ular bo‘lmaydi.',
+      p2Before:
+        'Sinxronlash yo‘q va saqlanib qolishi kafolatlanmaydi: sayt ma’lumotlarini tozalash, brauzerni o‘chirib tashlash yoki joy yetishmasligi loyihalarni yo‘qotishi mumkin. Ishingizni saqlashning ishonchli yo‘li — loyihaning ',
+      p2After: ' arxivini muntazam yuklab olish. Uni istalgan brauzerga qayta import qilish mumkin.',
+      usage: 'Sayt ma’lumotlari egallagan joy',
+      unknown: 'noma’lum',
+      persistence: 'Doimiy saqlash',
+      notSupported: 'qo‘llab-quvvatlanmaydi',
+      enabled: 'brauzer yoqqan',
+      notEnabled: 'yoqilmagan',
+      requestPersist: 'Brauzerdan ma’lumotlarni o‘chirmaslikni so‘rash',
+      persistGranted:
+        'Brauzer sayt ma’lumotlarini doimiy deb belgiladi: joy yetishmaganda ularni o‘zi o‘chirmaydi. Ma’lumotlarni qo‘lda tozalash baribir ularni o‘chirib yuboradi.',
+      persistDenied:
+        'Brauzer so‘rovni rad etdi. Bu xato emas, brauzerning odatiy qarori. Ma’lumotlar saqlanadi, lekin joy yetishmasa brauzer ularni o‘chirishi mumkin, shuning uchun zaxira arxivlarni saqlab boring.',
+      persistUnsupported: 'Bu brauzer doimiy saqlash so‘rovini qo‘llab-quvvatlamaydi.',
+      units: { gb: 'GB', mb: 'MB', kb: 'KB' },
+    },
+    backup: {
+      heading: 'Zaxira nusxalar',
+      textBefore: 'Zaxira nusxa — bu hujjat, logotiplar, tasvirlar va tokenlardan iborat loyiha arxivi. Loyihani tiklash uchun',
+      link: 'Loyihalar',
+      textAfter: 'sahifasini oching va «Arxivni import qilish» tugmasini bosing: u yangi loyiha yaratadi va mavjudlarini o‘zgartirmaydi.',
+      listFailed: 'Loyihalar ro‘yxatini brauzer xotirasidan o‘qib bo‘lmadi.',
+      notFound: 'loyiha topilmadi, ehtimol, u boshqa varaqda o‘chirilgan.',
+      downloaded: (title: string) => `«${title}» loyihasining arxivi yuklab olindi.`,
+      failed: (message: string) => `Arxiv yaratilmadi: ${message}`,
+      none: 'Hozircha zaxira nusxa olinadigan loyihalar yo‘q.',
+      updated: (date: string) => `O‘zgartirildi: ${date}`,
+      downloadLabel: (title: string) => `${title} loyihasi arxivini yuklab olish`,
+      busy: 'Yig‘ilmoqda…',
+      download: 'Arxivni yuklab olish',
+    },
+    ui: {
+      heading: 'Interfeys',
+      language: 'Interfeys tili',
+      languageHint: 'Hujjat tili har bir loyihada alohida belgilanadi.',
+      defaultTemplate: 'Yangi loyihalar uchun dizayn',
+      showNotice: 'Saqlash haqidagi maslahatni yana ko‘rsatish',
+    },
+  },
+  en: {
+    heading: 'Settings',
+    storage: {
+      heading: 'Where projects are stored',
+      p1: 'Brandfolio works without an account or a server. Projects, logos and images are saved in this browser’s storage (IndexedDB) on this device. They will not be there in another browser, on another device or in a private window.',
+      p2Before:
+        'There is no sync, and nothing guarantees the data will survive: clearing site data, removing the browser or running out of space can erase projects. The reliable way to keep your work is to regularly download the ',
+      p2After: ' project archive. You can import it back in any browser.',
+      usage: 'Used by site data',
+      unknown: 'unknown',
+      persistence: 'Persistent storage',
+      notSupported: 'not supported',
+      enabled: 'enabled by the browser',
+      notEnabled: 'not enabled',
+      requestPersist: 'Ask the browser to keep the data',
+      persistGranted:
+        'The browser marked the site data as persistent: it will not delete it on its own when space runs low. Clearing data manually will still erase it.',
+      persistDenied:
+        'The browser declined the request. This is a normal browser decision, not an error. Your data is saved, but the browser may delete it when space runs low, so keep backup archives.',
+      persistUnsupported: 'This browser does not support requests for persistent storage.',
+      units: { gb: 'GB', mb: 'MB', kb: 'KB' },
+    },
+    backup: {
+      heading: 'Backups',
+      textBefore: 'A backup is a project archive with the document, logos, images and tokens. To restore a project, open',
+      link: 'Projects',
+      textAfter: 'and click “Import archive”: it creates a new project and leaves existing ones unchanged.',
+      listFailed: 'Could not read the project list from browser storage.',
+      notFound: 'project not found; it may have been deleted in another tab.',
+      downloaded: (title: string) => `Archive of “${title}” downloaded.`,
+      failed: (message: string) => `Archive not created: ${message}`,
+      none: 'No projects to back up yet.',
+      updated: (date: string) => `Updated ${date}`,
+      downloadLabel: (title: string) => `Download archive of project ${title}`,
+      busy: 'Building…',
+      download: 'Download archive',
+    },
+    ui: {
+      heading: 'Interface',
+      language: 'Interface language',
+      languageHint: 'The document language is set in each project separately.',
+      defaultTemplate: 'Design for new projects',
+      showNotice: 'Show the storage tip again',
+    },
+  },
+});

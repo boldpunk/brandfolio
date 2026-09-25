@@ -7,7 +7,7 @@ type Api = { notify: (message: string, tone?: Toast['tone']) => void };
 const Ctx = createContext<Api>({ notify: () => undefined });
 
 /**
- * Short visual confirmations ("Скопировано") mirrored into a polite live
+ * Short visual confirmations ("Copied") mirrored into a polite live
  * region, so screen readers hear the result once.
  */
 export function AnnouncerProvider({ children }: { children: ReactNode }) {
@@ -26,7 +26,7 @@ export function AnnouncerProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              'rounded-md px-4 py-2 text-sm font-semibold shadow-sheet',
+              'toast rounded-md px-4 py-2 text-sm font-semibold shadow-sheet',
               t.tone === 'error' ? 'bg-danger text-white' : 'bg-ink text-white',
             )}
           >

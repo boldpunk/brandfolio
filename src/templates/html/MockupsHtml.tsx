@@ -5,45 +5,39 @@
 import type { CSSProperties } from 'react';
 import { isHttpUrl } from '@/domain/schema';
 import { logoForSurface, readableOn, type MockupVM, type SectionVM, type Tokens } from '@/features/brandbook/viewModel';
-import { AssetImage, typeCss, type AssetUrls } from './BrandbookHtml';
+import { AssetImage, typeCss, type AssetUrls, type DocumentLabels } from './BrandbookHtml';
 
 type Section = Extract<SectionVM, { kind: 'applications' }>;
-
-const MOCKUP_LABELS: Record<MockupVM['kind'], string> = {
-  'business-card': 'Визитка, лицевая и оборотная сторона',
-  'social-post': 'Публикация для соцсетей',
-  'website-hero': 'Первый экран сайта',
-  'packaging-label': 'Этикетка упаковки',
-};
 
 export function hostOf(url: string): string {
   if (!isHttpUrl(url)) return url;
   return new URL(url).host.replace(/^www\./, '');
 }
 
-export function MockupsHtml({ section, tokens, urls }: { section: Section; tokens: Tokens; urls: AssetUrls }) {
+/** `labels` are the document's labels (document language), passed down from BrandbookHtml. */
+export function MockupsHtml({ section, tokens, urls, labels }: { section: Section; tokens: Tokens; urls: AssetUrls; labels: DocumentLabels }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
       {section.mockups.map((m) => (
         <figure key={m.kind} style={{ margin: 0, breakInside: 'avoid' }}>
-          <Mockup mockup={m} section={section} tokens={tokens} urls={urls} />
-          <figcaption style={{ ...typeCss(tokens.type.caption), marginTop: 10 }}>{MOCKUP_LABELS[m.kind]}</figcaption>
+          <Mockup mockup={m} section={section} tokens={tokens} urls={urls} logoAlt={labels.logoAlt} />
+          <figcaption style={{ ...typeCss(tokens.type.caption), marginTop: 10 }}>{labels.mockupCaptions[m.kind]}</figcaption>
         </figure>
       ))}
     </div>
   );
 }
 
-function Logo({ section, surface, urls, height }: { section: Section; surface: string; urls: AssetUrls; height: number }) {
+function Logo({ section, surface, urls, height, alt }: { section: Section; surface: string; urls: AssetUrls; height: number; alt: string }) {
   const logo = logoForSurface(surface, section.logo, section.logoOnDark);
   if (!logo) return null;
-  return <AssetImage asset={logo} urls={urls} alt="Логотип" style={{ height, maxWidth: height * 4, width: 'auto' }} />;
+  return <AssetImage asset={logo} urls={urls} alt={alt} style={{ height, maxWidth: height * 4, width: 'auto' }} />;
 }
 
 // Long texts make a mockup taller rather than being clipped (nothing is cut off).
 const wrap: CSSProperties = { overflowWrap: 'anywhere', whiteSpace: 'pre-line' };
 
-function Mockup({ mockup, section, tokens, urls }: { mockup: MockupVM; section: Section; tokens: Tokens; urls: AssetUrls }) {
+function Mockup({ mockup, section, tokens, urls, logoAlt }: { mockup: MockupVM; section: Section; tokens: Tokens; urls: AssetUrls; logoAlt: string }) {
   const { background, text, accent } = mockup.colors;
   switch (mockup.kind) {
     case 'business-card': {
@@ -52,7 +46,7 @@ function Mockup({ mockup, section, tokens, urls }: { mockup: MockupVM; section: 
       return (
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
           <div style={{ ...card, background, color: text, justifyContent: 'center', alignItems: 'center', gap: 10 }}>
-            <Logo section={section} surface={background} urls={urls} height={44} />
+            <Logo section={section} surface={background} urls={urls} alt={logoAlt} height={44} />
             {!section.logo && <span style={{ ...typeCss(tokens.type.heading, 0.55), textAlign: 'center', ...wrap }}>{section.brandName}</span>}
           </div>
           <div style={{ ...card, background: accent, color: backFg, justifyContent: 'space-between' }}>
@@ -77,7 +71,7 @@ function Mockup({ mockup, section, tokens, urls }: { mockup: MockupVM; section: 
             {mockup.headline && <div style={{ ...typeCss(tokens.type.heading, 0.8), ...wrap }}>{mockup.headline}</div>}
             {mockup.caption && <div style={{ ...typeCss(tokens.type.body), marginTop: 10, ...wrap }}>{mockup.caption}</div>}
           </div>
-          <Logo section={section} surface={background} urls={urls} height={28} />
+          <Logo section={section} surface={background} urls={urls} alt={logoAlt} height={28} />
         </div>
       );
     case 'website-hero': {
@@ -91,7 +85,7 @@ function Mockup({ mockup, section, tokens, urls }: { mockup: MockupVM; section: 
             {section.contacts.website && <span style={{ marginLeft: 12, fontFamily: "'BF Noto Sans'", fontSize: 11, color: '#62615B' }}>{hostOf(section.contacts.website)}</span>}
           </div>
           <div style={{ background, color: text, padding: '20px 32px 40px', minHeight: 280, boxSizing: 'border-box' }}>
-            <Logo section={section} surface={background} urls={urls} height={26} />
+            <Logo section={section} surface={background} urls={urls} alt={logoAlt} height={26} />
             <div style={{ maxWidth: '78%', marginTop: 48 }}>
               {mockup.headline && <div style={{ ...typeCss(tokens.type.heading, 0.95), ...wrap }}>{mockup.headline}</div>}
               {mockup.subheadline && <div style={{ ...typeCss(tokens.type.body), marginTop: 12, ...wrap }}>{mockup.subheadline}</div>}
@@ -108,7 +102,7 @@ function Mockup({ mockup, section, tokens, urls }: { mockup: MockupVM; section: 
     case 'packaging-label':
       return (
         <div style={{ width: 340, minHeight: 220, background, color: text, borderRadius: 14, boxSizing: 'border-box', border: `6px solid ${accent}`, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden', boxShadow: '0 1px 4px rgb(0 0 0 / 0.18)' }}>
-          <Logo section={section} surface={background} urls={urls} height={24} />
+          <Logo section={section} surface={background} urls={urls} alt={logoAlt} height={24} />
           <div>
             {mockup.productName && <div style={{ ...typeCss(tokens.type.heading, 0.7), ...wrap }}>{mockup.productName}</div>}
             {mockup.descriptor && <div style={{ ...typeCss(tokens.type.body), marginTop: 6, ...wrap }}>{mockup.descriptor}</div>}

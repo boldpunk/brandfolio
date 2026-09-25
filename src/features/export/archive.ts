@@ -20,6 +20,9 @@ import { remapProject } from '@/domain/remap';
 import { CURRENT_SCHEMA_VERSION, exportManifestSchema, projectSchema, type Asset, type ExportManifest, type Project } from '@/domain/schema';
 import { resolveTokens } from '@/features/brandbook/viewModel';
 import { ingestFile, type Decoder } from '@/features/assets/ingest';
+import { msg } from '@/i18n/core';
+import { exportMessages } from '@/i18n/messages/export';
+import { validationMessages } from '@/i18n/messages/validation';
 
 export const APP_VERSION = '1.0.0';
 const EXT: Record<Asset['mimeType'], string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg' };
@@ -73,22 +76,6 @@ export function buildTokens(project: Project): { json: string; css: string } {
 
 // ---------------------------------------------------------------- export
 
-const README = (title: string, date: string) => `Brandfolio — архив проекта «${title}»
-Создан: ${date}
-
-Содержимое
-  project.json  документ проекта и список файлов (schemaVersion ${CURRENT_SCHEMA_VERSION})
-  assets/       логотипы и изображения
-  tokens.json   цвета и типографика в JSON
-  tokens.css    те же токены как CSS custom properties
-
-Как восстановить
-  Откройте Brandfolio → «Проекты» → «Импорт архива» и выберите этот файл.
-  Проект будет создан как новый; существующие проекты не изменятся.
-
-Шрифты Manrope, Noto Sans и Noto Serif распространяются по SIL Open Font License 1.1.
-`;
-
 export async function exportArchive(project: Project, assets: readonly Asset[], now = new Date()): Promise<Blob> {
   const valid = projectSchema.parse(project);
   const byId = new Map(assets.map((a) => [a.id, a]));
@@ -96,7 +83,7 @@ export async function exportArchive(project: Project, assets: readonly Asset[], 
   const manifestAssets: ExportManifest['assets'] = [];
   for (const id of valid.assetIds) {
     const asset = byId.get(id);
-    if (!asset) throw new Error(`Нет файла ассета ${id}`);
+    if (!asset) throw new Error(msg(validationMessages).missingAsset(id));
     const bytes = new Uint8Array(await asset.blob.arrayBuffer());
     const path = `assets/${id}.${EXT[asset.mimeType]}`;
     files[path] = [bytes, { level: asset.mimeType === 'image/svg+xml' ? 6 : 0 }];
@@ -107,7 +94,9 @@ export async function exportArchive(project: Project, assets: readonly Asset[], 
   files['project.json'] = strToU8(JSON.stringify({ ...manifest, project: valid }, null, 2));
   files['tokens.json'] = strToU8(tokens.json);
   files['tokens.css'] = strToU8(tokens.css);
-  files['README.txt'] = strToU8(README(valid.title, now.toISOString().slice(0, 10)));
+  // The README belongs to the document, so it follows the document language.
+  const readme = msg(exportMessages, valid.language).readme(valid.title, now.toISOString().slice(0, 10), CURRENT_SCHEMA_VERSION);
+  files['README.txt'] = strToU8(readme);
   const zipped = zipSync(files, { level: 6 });
   return new Blob([zipped], { type: 'application/zip' });
 }
@@ -129,8 +118,9 @@ const ASSET_PATH = /^assets\/[A-Za-z0-9_-]{1,64}\.(png|jpg|svg)$/;
  * and total unpacked size, allowed paths (no traversal, no nested archives).
  */
 export function unpackLimited(bytes: Uint8Array): Map<string, Uint8Array> {
-  if (bytes.byteLength > IMPORT_LIMITS.maxArchiveBytes) throw new ImportError('Архив больше 40 МиБ.');
-  if (bytes.byteLength < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new ImportError('Файл не является ZIP-архивом.');
+  const m = msg(exportMessages).import;
+  if (bytes.byteLength > IMPORT_LIMITS.maxArchiveBytes) throw new ImportError(m.archiveTooBig);
+  if (bytes.byteLength < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new ImportError(m.notZip);
   const files = new Map<string, Uint8Array>();
   let total = 0;
   let count = 0;
@@ -145,28 +135,28 @@ export function unpackLimited(bytes: Uint8Array): Map<string, Uint8Array> {
     if (failure) return;
     const name = file.name;
     if (name.endsWith('/')) return; // directory entry
-    if (++count > IMPORT_LIMITS.maxFiles) return fail(`В архиве больше ${IMPORT_LIMITS.maxFiles} файлов.`);
+    if (++count > IMPORT_LIMITS.maxFiles) return fail(m.tooManyFiles(IMPORT_LIMITS.maxFiles));
     if (name.includes('..') || name.startsWith('/') || name.includes('\\') || /^[a-z]:/i.test(name) || name.includes('\0')) {
-      return fail(`Недопустимый путь в архиве: ${name}`);
+      return fail(m.badPath(name));
     }
-    if (!ALLOWED_ROOT.has(name) && !ASSET_PATH.test(name)) return fail(`В архиве неожиданный файл: ${name}. Импортируются только архивы Brandfolio.`);
-    if (files.has(name)) return fail(`Файл повторяется в архиве: ${name}`);
+    if (!ALLOWED_ROOT.has(name) && !ASSET_PATH.test(name)) return fail(m.unexpectedFile(name));
+    if (files.has(name)) return fail(m.duplicateFile(name));
     const limit = name === 'project.json' ? IMPORT_LIMITS.maxProjectJsonBytes : name.startsWith('assets/') ? ASSET_LIMITS.maxBytes : 1024 * 1024;
-    if (file.originalSize !== undefined && file.originalSize > limit) return fail(`Файл ${name} слишком большой.`);
+    if (file.originalSize !== undefined && file.originalSize > limit) return fail(m.fileTooBig(name));
     const chunks: Uint8Array[] = [];
     let size = 0;
     file.ondata = (err, data, final) => {
       if (failure) return;
-      if (err) return fail(`Архив повреждён: ${err.message}`);
+      if (err) return fail(m.corrupted(err.message));
       size += data.length;
       total += data.length;
       if (size > limit) {
         file.terminate();
-        return fail(`Файл ${name} слишком большой после распаковки.`);
+        return fail(m.fileTooBigUnpacked(name));
       }
       if (total > IMPORT_LIMITS.maxUnpackedBytes) {
         file.terminate();
-        return fail('Распакованный архив больше 100 МиБ.');
+        return fail(m.unpackedTooBig);
       }
       chunks.push(data);
       if (final) {
@@ -176,14 +166,14 @@ export function unpackLimited(bytes: Uint8Array): Map<string, Uint8Array> {
           out.set(c, offset);
           offset += c.length;
         }
-        if (name.startsWith('assets/') && out[0] === 0x50 && out[1] === 0x4b) return fail(`Вложенные архивы не поддерживаются: ${name}`);
+        if (name.startsWith('assets/') && out[0] === 0x50 && out[1] === 0x4b) return fail(m.nestedArchive(name));
         files.set(name, out);
       }
     };
     try {
       file.start();
     } catch {
-      fail(`Неподдерживаемый способ сжатия: ${name}`);
+      fail(m.unsupportedCompression(name));
     }
   };
 
@@ -193,10 +183,10 @@ export function unpackLimited(bytes: Uint8Array): Map<string, Uint8Array> {
       unzip.push(bytes.subarray(offset, offset + CHUNK), offset + CHUNK >= bytes.length);
     }
   } catch (error) {
-    fail(`Архив повреждён: ${error instanceof Error ? error.message : error}`);
+    fail(m.corrupted(error instanceof Error ? error.message : String(error)));
   }
   if (failure) throw failure;
-  if (!files.has('project.json')) throw new ImportError(count === 0 ? 'Архив пустой.' : 'В архиве нет project.json.');
+  if (!files.has('project.json')) throw new ImportError(count === 0 ? m.empty : m.noProjectJson);
   return files;
 }
 
@@ -209,6 +199,7 @@ export type ImportedProject = { project: Project; assets: Asset[] };
  * Nothing is written here; the caller stores the result in one transaction.
  */
 export async function readArchive(file: Blob, options: { decode?: Decoder } = {}): Promise<ImportedProject> {
+  const m = msg(exportMessages).import;
   const bytes = new Uint8Array(await file.arrayBuffer());
   const files = unpackLimited(bytes);
 
@@ -216,14 +207,14 @@ export async function readArchive(file: Blob, options: { decode?: Decoder } = {}
   try {
     raw = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(files.get('project.json')!));
   } catch {
-    throw new ImportError('project.json повреждён или не в UTF-8.');
+    throw new ImportError(m.projectJsonBroken);
   }
   const version = (raw as { schemaVersion?: unknown })?.schemaVersion;
   if (typeof version === 'number' && version > CURRENT_SCHEMA_VERSION) {
-    throw new ImportError(`Архив создан более новой версией Brandfolio (схема ${version}, поддерживается до ${CURRENT_SCHEMA_VERSION}). Обновите приложение.`);
+    throw new ImportError(m.newerSchema(version, CURRENT_SCHEMA_VERSION));
   }
   const doc = archiveDocSchema.safeParse(raw);
-  if (!doc.success) throw new ImportError(`Неверная структура project.json: ${doc.error.issues[0]?.path.join('.') || ''} ${doc.error.issues[0]?.message ?? ''}`.trim());
+  if (!doc.success) throw new ImportError(m.badStructure(`${doc.error.issues[0]?.path.join('.') || ''} ${doc.error.issues[0]?.message ?? ''}`.trim()));
 
   let project: Project;
   try {
@@ -231,25 +222,25 @@ export async function readArchive(file: Blob, options: { decode?: Decoder } = {}
   } catch (error) {
     if (error instanceof SchemaVersionError) throw new ImportError(error.message);
     const issue = error instanceof z.ZodError ? error.issues[0] : undefined;
-    throw new ImportError(`Проект в архиве не прошёл проверку${issue ? `: ${issue.path.join('.')} — ${issue.message}` : ''}.`);
+    throw new ImportError(m.projectInvalid(issue ? `${issue.path.join('.')} — ${issue.message}` : ''));
   }
 
   const manifest = new Map(doc.data.assets.map((a) => [a.id, a]));
-  if (manifest.size !== doc.data.assets.length) throw new ImportError('Список файлов в project.json содержит повторы.');
+  if (manifest.size !== doc.data.assets.length) throw new ImportError(m.duplicateManifest);
   const newProjectId = createId('p');
   const assetIdMap = new Map<string, string>();
   const assets: Asset[] = [];
   for (const id of project.assetIds) {
     const entry = manifest.get(id);
-    if (!entry) throw new ImportError(`В описании архива нет файла для ассета ${id}.`);
+    if (!entry) throw new ImportError(m.noManifestEntry(id));
     const data = files.get(entry.path);
-    if (!data) throw new ImportError(`В архиве отсутствует файл ${entry.path}.`);
+    if (!data) throw new ImportError(m.missingFile(entry.path));
     const copy = new Uint8Array(data);
-    if ((await sha256(copy)) !== entry.sha256) throw new ImportError(`Файл ${entry.path} повреждён: контрольная сумма не совпадает.`);
+    if ((await sha256(copy)) !== entry.sha256) throw new ImportError(m.checksum(entry.path));
     // Re-validate as if freshly uploaded: type from bytes, limits, SVG sanitizing, decoding.
     const result = await ingestFile(new File([copy], entry.filename), { kind: entry.kind, projectId: newProjectId, allowSvg: entry.kind === 'logo', decode: options.decode });
-    if (!result.ok) throw new ImportError(`Файл ${entry.filename}: ${result.error}`);
-    if (result.asset.mimeType !== entry.mimeType) throw new ImportError(`Тип файла ${entry.filename} не совпадает с описанием.`);
+    if (!result.ok) throw new ImportError(m.assetFile(entry.filename, result.error));
+    if (result.asset.mimeType !== entry.mimeType) throw new ImportError(m.typeMismatch(entry.filename));
     assetIdMap.set(id, result.asset.id);
     assets.push(result.asset);
   }

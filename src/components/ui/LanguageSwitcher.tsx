@@ -19,7 +19,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'relative inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm sm:px-2.5 font-semibold text-ink transition-colors hover:bg-ink/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
+        'relative inline-flex h-9 items-center gap-1.5 rounded-md px-1.5 text-sm sm:px-2.5 font-semibold text-ink transition-colors hover:bg-ink/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
         className,
       )}
     >

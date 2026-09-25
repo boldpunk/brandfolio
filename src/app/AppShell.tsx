@@ -7,7 +7,7 @@ import { useMessages } from '@/i18n/core';
 import { commonMessages } from '@/i18n/messages/common';
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
-  cn('rounded-md px-2.5 py-2 text-sm font-semibold transition-colors sm:px-3', isActive ? 'bg-ink text-white' : 'text-ink hover:bg-ink/5');
+  cn('rounded-md px-2 py-2 text-sm font-semibold transition-colors sm:px-3', isActive ? 'bg-ink text-white' : 'text-ink hover:bg-ink/5');
 
 /** Chrome for the non-editor pages. */
 export function AppShell() {
@@ -21,11 +21,11 @@ export function AppShell() {
         {m.skipToContent}
       </a>
       <header className="sticky top-0 z-30 border-b border-line bg-paper/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-1 px-4 sm:gap-4 sm:px-6">
           <NavLink to="/" className="rounded-md" aria-label={m.homeLink}>
             <Wordmark />
           </NavLink>
-          <nav aria-label={m.mainNav} className="flex items-center gap-0.5 sm:gap-1">
+          <nav aria-label={m.mainNav} className="flex items-center sm:gap-1">
             <NavLink to="/projects" className={navLink}>
               {m.projects}
             </NavLink>

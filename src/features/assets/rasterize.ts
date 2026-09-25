@@ -9,10 +9,7 @@ import { assetsMessages } from '@/i18n/messages/assets';
 export async function rasterizeSvg(svg: string, longSidePx = 1600): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = url;
-    await image.decode();
+    const image = await loadImage(url);
     const ratio = image.naturalWidth / image.naturalHeight || 1;
     const width = ratio >= 1 ? longSidePx : Math.round(longSidePx * ratio);
     const height = ratio >= 1 ? Math.round(longSidePx / ratio) : longSidePx;
@@ -28,4 +25,17 @@ export async function rasterizeSvg(svg: string, longSidePx = 1600): Promise<Blob
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/**
+ * Waits for `load` rather than relying on `decode()`: WebKit (Safari) rejects
+ * `decode()` for SVG images that load and draw fine.
+ */
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(msg(assetsMessages).pngFailed));
+    image.src = url;
+  });
 }

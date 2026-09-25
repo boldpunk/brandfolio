@@ -11,7 +11,8 @@ const PreviewPage = lazy(() => import('@/features/brandbook/PreviewPage'));
 
 const page = (node: ReactNode) => <Suspense fallback={<p className="p-8 text-muted">Загрузка…</p>}>{node}</Suspense>;
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
   {
     errorElement: <RouteErrorPage />,
     children: [
@@ -28,4 +29,6 @@ export const router = createBrowserRouter([
       { path: '/preview/:projectId', element: page(<PreviewPage />) },
     ],
   },
-]);
+],
+  { basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/' },
+);

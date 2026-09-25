@@ -30,10 +30,12 @@ const FAQ = [
   },
 ];
 
+const EX = `${import.meta.env.BASE_URL}examples/`;
+
 const COVERS: Record<string, string> = {
-  editorial: '/examples/editorial-p1.jpg',
-  studio: '/examples/studio-p1.jpg',
-  contrast: '/examples/contrast-p1.jpg',
+  editorial: EX + 'editorial-p1.jpg',
+  studio: EX + 'studio-p1.jpg',
+  contrast: EX + 'contrast-p1.jpg',
 };
 
 function Sheet({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -83,8 +85,8 @@ export default function HomePage() {
         </div>
         <figure className="m-0">
           <div className="grid grid-cols-2 gap-3 rounded-lg bg-desk p-4 sm:gap-4 sm:p-6">
-            <Sheet src="/examples/editorial-p1.jpg" alt="Обложка брендбука FORMA в оформлении Editorial" />
-            <Sheet src="/examples/editorial-p5.jpg" alt="Страница «Цвета» брендбука FORMA: четыре цвета с HEX, RGB, HSL и контрастом" />
+            <Sheet src={EX + 'editorial-p1.jpg'} alt="Обложка брендбука FORMA в оформлении Editorial" />
+            <Sheet src={EX + 'editorial-p5.jpg'} alt="Страница «Цвета» брендбука FORMA: четыре цвета с HEX, RGB, HSL и контрастом" />
           </div>
           <figcaption className="mt-3 text-xs text-muted">Страницы PDF демонстрационного проекта FORMA. Бренд вымышленный.</figcaption>
         </figure>
@@ -104,7 +106,7 @@ export default function HomePage() {
           ))}
         </ol>
         <figure className="mt-10">
-          <img src="/examples/editor.jpg" alt="Редактор Brandfolio: список разделов слева, страница «Цвета» в центре, настройки цвета справа" width={1440} height={900} loading="lazy" className="block h-auto w-full rounded-lg border border-line shadow-panel" />
+          <img src={EX + 'editor.jpg'} alt="Редактор Brandfolio: список разделов слева, страница «Цвета» в центре, настройки цвета справа" width={1440} height={900} loading="lazy" className="block h-auto w-full rounded-lg border border-line shadow-panel" />
           <figcaption className="mt-3 text-xs text-muted">Редактор: разделы, рабочий лист и настройки. На телефоне панели переключаются вкладками.</figcaption>
         </figure>
       </section>

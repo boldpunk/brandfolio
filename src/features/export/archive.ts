@@ -12,7 +12,7 @@
  */
 import { Unzip, UnzipInflate, strToU8, zipSync, type Zippable } from 'fflate';
 import { z } from 'zod';
-import { FONT_FAMILIES } from '@/domain/fonts';
+import { resolveFamily } from '@/domain/fonts';
 import { createId } from '@/domain/ids';
 import { ASSET_LIMITS, IMPORT_LIMITS } from '@/domain/limits';
 import { parseProject, SchemaVersionError } from '@/domain/migrations';
@@ -25,7 +25,7 @@ import { exportMessages } from '@/i18n/messages/export';
 import { validationMessages } from '@/i18n/messages/validation';
 
 export const APP_VERSION = '1.0.0';
-const EXT: Record<Asset['mimeType'], string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg' };
+const EXT: Record<Asset['mimeType'], string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg', 'font/ttf': 'ttf', 'font/otf': 'otf' };
 
 async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -46,7 +46,7 @@ export function buildTokens(project: Project): { json: string; css: string } {
   const typography = Object.fromEntries(
     Object.entries(project.brand.typography).map(([role, t]) => [
       role,
-      { fontFamily: FONT_FAMILIES[t.familyId].label, fontWeight: t.weight, fontSizePx: t.sizePx, lineHeight: t.lineHeight, letterSpacingEm: t.trackingEm },
+      { fontFamily: resolveFamily(t.familyId, project.brand.customFonts).label, fontWeight: t.weight, fontSizePx: t.sizePx, lineHeight: t.lineHeight, letterSpacingEm: t.trackingEm },
     ]),
   );
   const json = {
@@ -62,7 +62,7 @@ export function buildTokens(project: Project): { json: string; css: string } {
     ...project.brand.colors.map((c) => `  --bf-color-${cssTokenName(c.id)}: ${c.hex}; /* ${cssComment(c.name || c.role)} */`),
     ...(['background', 'text', 'primary', 'secondary', 'accent'] as const).map((r) => `  --bf-${r}: ${roles[r]};`),
     ...Object.entries(project.brand.typography).flatMap(([role, t]) => [
-      `  --bf-font-${role}-family: '${FONT_FAMILIES[t.familyId].label}';`,
+      `  --bf-font-${role}-family: '${cssComment(resolveFamily(t.familyId, project.brand.customFonts).label).replace(/'/g, '')}';`,
       `  --bf-font-${role}-weight: ${t.weight};`,
       `  --bf-font-${role}-size: ${t.sizePx}px;`,
       `  --bf-font-${role}-line-height: ${t.lineHeight};`,
@@ -111,7 +111,7 @@ export class ImportError extends Error {
 }
 
 const ALLOWED_ROOT = new Set(['project.json', 'tokens.json', 'tokens.css', 'README.txt']);
-const ASSET_PATH = /^assets\/[A-Za-z0-9_-]{1,64}\.(png|jpg|svg)$/;
+const ASSET_PATH = /^assets\/[A-Za-z0-9_-]{1,64}\.(png|jpg|svg|ttf|otf)$/;
 
 /**
  * Streams the ZIP and enforces limits while inflating: file count, per-file

@@ -8,10 +8,15 @@ import { CURRENT_SCHEMA_VERSION, projectSchema, type Project } from './schema';
  *
  * v1 → v2: the document gets its own `language`. Every v1 project was made
  * in the Russian-only release, so its labels stay Russian.
+ * v2 → v3: brands can carry their own fonts; existing brands have none.
  */
 type RawDocument = Record<string, unknown> & { schemaVersion: number };
 export const MIGRATIONS: Record<number, (doc: RawDocument) => RawDocument> = {
   1: (doc) => ({ ...doc, schemaVersion: 2, language: 'ru' }),
+  2: (doc) => {
+    const brand = typeof doc.brand === 'object' && doc.brand !== null ? doc.brand : {};
+    return { ...doc, schemaVersion: 3, brand: { ...brand, customFonts: [] } };
+  },
 };
 
 export class SchemaVersionError extends Error {

@@ -9,16 +9,29 @@ export type ProjectRecord = Project;
  * Records written before that change still carry `blob` and stay readable.
  */
 export type AssetRecord = Omit<Asset, 'blob'> & { bytes?: ArrayBuffer; blob?: Blob };
+/**
+ * A local project that is also stored in the cloud (same ID on both sides).
+ * `cloudRevision` is the server revision this device last wrote or read;
+ * `accountId` keeps links of one account from acting for another one.
+ */
+export type CloudLinkRecord = { projectId: string; accountId: string; cloudRevision: number; syncedAt: string };
 
 export class BrandfolioDb extends Dexie {
   projects!: EntityTable<ProjectRecord, 'id'>;
   assets!: EntityTable<AssetRecord, 'id'>;
+  cloudLinks!: EntityTable<CloudLinkRecord, 'projectId'>;
 
   constructor(name = 'brandfolio') {
     super(name);
     this.version(1).stores({
       projects: 'id, updatedAt, title',
       assets: 'id, projectId',
+    });
+    // v2 only adds the cloud link table; v1 stores stay as they are.
+    this.version(2).stores({
+      projects: 'id, updatedAt, title',
+      assets: 'id, projectId',
+      cloudLinks: 'projectId, accountId',
     });
   }
 }

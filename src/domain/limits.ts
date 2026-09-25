@@ -21,6 +21,8 @@ export const LIST_LIMITS = {
 
 export const PALETTE_LIMITS = { min: 2, max: 12 } as const;
 export const IMAGERY_MAX_IMAGES = 6;
+/** Brand fonts (Pro): families per brand and weights (files) per family. */
+export const CUSTOM_FONT_LIMITS = { families: 4, filesPerFamily: 6 } as const;
 export const VOICE_QUALITIES = 3;
 
 export const MIB = 1024 * 1024;

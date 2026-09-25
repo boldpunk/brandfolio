@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router';
 import { cn } from '@/lib/cn';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { Wordmark } from '@/components/ui/Wordmark';
+import { AccountEntry } from '@/features/account/AccountEntry';
 import { useMessages } from '@/i18n/core';
 import { commonMessages } from '@/i18n/messages/common';
 
@@ -33,6 +34,7 @@ export function AppShell() {
               {m.settings}
             </NavLink>
             <LanguageSwitcher />
+            <AccountEntry />
           </nav>
         </div>
       </header>

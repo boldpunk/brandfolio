@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { migrateProject, parseProject, SchemaVersionError } from './migrations';
 import { createEmptyProject } from './project';
-import { projectSchema } from './schema';
+import { CURRENT_SCHEMA_VERSION, projectSchema } from './schema';
 
 const clone = <T,>(v: T): T => structuredClone(v);
 
@@ -59,6 +59,35 @@ describe('project schema', () => {
     expect(projectSchema.safeParse(project).success).toBe(false);
   });
 
+  it('accepts brand fonts and checks their files, ids and weights', () => {
+    const project = createEmptyProject('X');
+    project.assetIds = ['a_regular', 'a_bold'];
+    project.brand.customFonts = [{ id: 'f_brand', name: 'Brand Sans', category: 'sans', files: [{ weight: 400, assetId: 'a_regular' }, { weight: 700, assetId: 'a_bold' }] }];
+    project.brand.typography.heading = { ...project.brand.typography.heading, familyId: 'f_brand', weight: 700 };
+    expect(projectSchema.safeParse(project).success).toBe(true);
+
+    const badWeight = structuredClone(project);
+    badWeight.brand.typography.heading.weight = 600;
+    expect(projectSchema.safeParse(badWeight).success).toBe(false);
+
+    const unknownFamily = structuredClone(project);
+    unknownFamily.brand.typography.heading.familyId = 'f_removed';
+    expect(projectSchema.safeParse(unknownFamily).success).toBe(false);
+
+    const missingFile = structuredClone(project);
+    missingFile.assetIds = ['a_regular'];
+    expect(projectSchema.safeParse(missingFile).success).toBe(false);
+
+    const shadowsBundled = structuredClone(project);
+    shadowsBundled.brand.customFonts[0]!.id = 'manrope';
+    shadowsBundled.brand.typography.heading.familyId = 'manrope';
+    expect(projectSchema.safeParse(shadowsBundled).success).toBe(false);
+
+    const sameWeight = structuredClone(project);
+    sameWeight.brand.customFonts[0]!.files[1]!.weight = 400;
+    expect(projectSchema.safeParse(sameWeight).success).toBe(false);
+  });
+
   it('rejects non-canonical HEX in stored documents', () => {
     const project = createEmptyProject('X');
     project.brand.colors[0]!.hex = '#fff';
@@ -86,11 +115,21 @@ describe('migrations', () => {
     expect(() => migrateProject({ schemaVersion: 1 }, {}, 2)).toThrow(/Нет миграции/);
   });
 
-  it('upgrades a v1 document to v2 with Russian document labels', () => {
-    const { language: _language, ...v1 } = { ...createEmptyProject('Старый проект'), schemaVersion: 1 };
+  it('upgrades a v1 document with Russian document labels and no brand fonts', () => {
+    const current = createEmptyProject('Старый проект');
+    const { customFonts: _fonts, ...brand } = current.brand;
+    const { language: _language, ...v1 } = { ...current, brand, schemaVersion: 1 };
     const parsed = parseProject(clone(v1));
-    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(parsed.language).toBe('ru');
+    expect(parsed.brand.customFonts).toEqual([]);
+  });
+
+  it('upgrades a v2 document: brand fonts start empty', () => {
+    const current = createEmptyProject('Проект v2', 'editorial', new Date(), 'uz');
+    const { customFonts: _fonts, ...brand } = current.brand;
+    const parsed = parseProject(clone({ ...current, brand, schemaVersion: 2 }));
+    expect(parsed).toEqual(current);
   });
 
   it('parses a current document unchanged', () => {

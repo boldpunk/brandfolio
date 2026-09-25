@@ -129,7 +129,7 @@ export default function SettingsPage() {
           >
             {TEMPLATE_INFO.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name}
+                {t.premium ? `${t.name} · Pro` : t.name}
               </option>
             ))}
           </SelectField>

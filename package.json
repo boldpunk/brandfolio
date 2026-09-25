@@ -12,9 +12,13 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b",
     "fonts": "python3 scripts/build-fonts.py",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "server:dev": "node server/dev.mjs",
+    "server:build": "vite build --config vite.server.config.ts",
+    "server:test": "vitest run server"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.1",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@radix-ui/react-tabs": "^1.1.21",
@@ -22,6 +26,7 @@
     "@react-pdf/renderer": "^4.9.0",
     "dexie": "^4.4.6",
     "fflate": "^0.8.3",
+    "hono": "^4.13.9",
     "lucide-react": "^1.48.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

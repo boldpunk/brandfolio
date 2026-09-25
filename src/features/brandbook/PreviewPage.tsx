@@ -5,6 +5,7 @@ import { ProjectMissingPage } from '@/app/StatusPages';
 import { Button } from '@/components/ui/Button';
 import type { Project } from '@/domain/schema';
 import { useProjectAssets } from '@/features/assets/useProjectAssets';
+import { NO_FONTS, useBrandFonts } from '@/features/fonts/brandFonts';
 import { ExportDialog } from '@/features/export/ExportDialog';
 import { useMessages } from '@/i18n/core';
 import { previewMessages } from '@/i18n/messages/preview';
@@ -21,6 +22,7 @@ export default function PreviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const assets = useProjectAssets(project?.assetIds ?? []);
+  useBrandFonts(project?.brand.customFonts ?? NO_FONTS, assets.blobs);
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 

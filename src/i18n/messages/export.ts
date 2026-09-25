@@ -33,6 +33,13 @@ export const exportMessages = defineMessages({
       zipTextAfter: ' содержит проект, логотипы, изображения и токены (JSON и CSS). Его можно импортировать в другом браузере или хранить как резервную копию.',
       zipBusy: 'Собираем архив…',
       downloadZip: 'Скачать архив',
+      plan: {
+        locked: (list: string) => `В документе есть функции Pro: ${list}. На бесплатном плане PDF скачивается с водяным знаком «Предпросмотр».`,
+        template: (name: string) => `шаблон ${name}`,
+        fonts: 'шрифты бренда',
+        getPro: 'Подключить Pro',
+        footerNote: 'На бесплатном плане внизу страниц есть строка «Сделано в Brandfolio». В Pro её нет.',
+      },
     },
     pdf: {
       missingFiles: (list: string) => `Не найдены файлы: ${list}. Загрузите их заново в редакторе.`,
@@ -106,6 +113,13 @@ export const exportMessages = defineMessages({
         ' faylida loyiha, logotiplar, tasvirlar va tokenlar (JSON va CSS) bor. Uni boshqa brauzerga import qilish yoki zaxira nusxa sifatida saqlab qo‘yish mumkin.',
       zipBusy: 'Arxiv yig‘ilmoqda…',
       downloadZip: 'Arxivni yuklab olish',
+      plan: {
+        locked: (list: string) => `Hujjatda Pro funksiyalari bor: ${list}. Bepul tarifda PDF «Namuna» suv belgisi bilan yuklab olinadi.`,
+        template: (name: string) => `${name} shabloni`,
+        fonts: 'brend shriftlari',
+        getPro: 'Pro ni ulash',
+        footerNote: 'Bepul tarifda sahifalar pastida «Brandfolio’da yaratilgan» yozuvi bor. Pro’da u yo‘q.',
+      },
     },
     pdf: {
       missingFiles: (list: string) => `Fayllar topilmadi: ${list}. Ularni tahrirlovchida qayta yuklang.`,
@@ -179,6 +193,13 @@ Manrope, Noto Sans va Noto Serif shriftlari SIL Open Font License 1.1 litsenziya
       zipTextAfter: ' file contains the project, logos, images and tokens (JSON and CSS). You can import it in another browser or keep it as a backup.',
       zipBusy: 'Building archive…',
       downloadZip: 'Download archive',
+      plan: {
+        locked: (list: string) => `This document uses Pro features: ${list}. On the free plan the PDF downloads with a “Preview” watermark.`,
+        template: (name: string) => `the ${name} template`,
+        fonts: 'brand fonts',
+        getPro: 'Get Pro',
+        footerNote: 'On the free plan the pages carry a small “Made with Brandfolio” line. Pro removes it.',
+      },
     },
     pdf: {
       missingFiles: (list: string) => `Files not found: ${list}. Upload them again in the editor.`,

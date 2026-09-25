@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { ProjectMissingPage } from '@/app/StatusPages';
 import { buildViewModel } from '@/features/brandbook/viewModel';
 import { useProjectAssets } from '@/features/assets/useProjectAssets';
+import { NO_FONTS, useBrandFonts } from '@/features/fonts/brandFonts';
 import { cn } from '@/lib/cn';
 import { useMessages } from '@/i18n/core';
 import { editorMessages } from '@/i18n/messages/editor';
@@ -66,6 +67,7 @@ function EditorWorkspace({ projectId, initialRevision }: { projectId: string; in
   const loadProject = useEditorStore((s) => s.load);
   const autosave = useAutosave(projectId, initialRevision);
   const assets = useProjectAssets(project?.assetIds ?? []);
+  useBrandFonts(project?.brand.customFonts ?? NO_FONTS, assets.blobs);
   const navigate = useNavigate();
   const wide = useMediaQuery('(min-width: 1280px)');
   const desktop = useMediaQuery('(min-width: 1024px)');

@@ -1,5 +1,5 @@
 import * as Menu from '@radix-ui/react-dropdown-menu';
-import { Archive, Copy, Eye, FolderOpen, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
+import { Archive, Cloud, CloudOff, CloudUpload, Copy, Eye, FolderOpen, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -21,6 +21,11 @@ import { archiveFileName } from '@/features/export/fileNames';
 import { downloadBlob } from '@/lib/download';
 import { getAssets, getProject } from '@/storage/projectRepository';
 import { track } from '@/lib/analytics';
+import { deleteLink } from '@/cloud/links';
+import { cloudMessages } from '@/i18n/messages/cloud';
+import { PlanLimitNotice } from '@/features/account/PlanLimitNotice';
+import { CloudDeleteDialog, CloudSection } from './CloudSection';
+import { useProjectsCloud, type CloudTarget } from './useProjectsCloud';
 
 const dateFormats = new Map<Locale, Intl.DateTimeFormat>();
 function dateFormat(locale: Locale): Intl.DateTimeFormat {
@@ -77,6 +82,9 @@ export default function ProjectsPage() {
   }, [reload]);
 
   const visible = useMemo(() => (projects ? sortAndFilter(projects, query, projectSort, locale) : []), [projects, query, projectSort, locale]);
+  const cloud = useProjectsCloud(reload);
+  const localIds = useMemo(() => new Set(projects?.map((p) => p.id) ?? []), [projects]);
+  const [cloudToDelete, setCloudToDelete] = useState<CloudTarget | null>(null);
 
   async function duplicate(project: ProjectSummary) {
     try {
@@ -103,6 +111,8 @@ export default function ProjectsPage() {
     if (!toDelete) return;
     try {
       await deleteProject(toDelete.id);
+      // The cloud copy stays; only this device forgets the link.
+      await deleteLink(toDelete.id).catch(() => undefined);
       notify(m.deleted(toDelete.title));
       setToDelete(null);
       await reload();
@@ -175,15 +185,43 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {cloud.limitHit && <PlanLimitNotice me={cloud.me} className="mt-6 animate-rise" />}
+
       {projects && projects.length > 0 && visible.length === 0 && <p className="mt-10 text-muted">{m.noMatches(query)}</p>}
 
       <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((project) => (
           <li key={project.id}>
-            <ProjectCard project={project} onDuplicate={() => duplicate(project)} onArchive={() => downloadArchive(project)} onDelete={() => setToDelete(project)} />
+            <ProjectCard
+              project={project}
+              onDuplicate={() => duplicate(project)}
+              onArchive={() => downloadArchive(project)}
+              onDelete={() => setToDelete(project)}
+              cloud={
+                cloud.me
+                  ? {
+                      linked: cloud.links.has(project.id),
+                      busy: cloud.busy.has(project.id),
+                      onSave: () => void cloud.save(project),
+                      onDelete: () => setCloudToDelete(project),
+                    }
+                  : null
+              }
+            />
           </li>
         ))}
       </ul>
+
+      <CloudSection cloud={cloud} localIds={localIds} onDelete={setCloudToDelete} />
+
+      <CloudDeleteDialog
+        target={cloudToDelete}
+        busy={cloudToDelete !== null && cloud.busy.has(cloudToDelete.id)}
+        onCancel={() => setCloudToDelete(null)}
+        onConfirm={() => {
+          if (cloudToDelete) void cloud.remove(cloudToDelete).then((ok) => ok && setCloudToDelete(null));
+        }}
+      />
 
       <CreateProjectDialog open={creating} onOpenChange={setCreating} onCreated={(id) => navigate(`/editor/${id}`)} />
 
@@ -205,10 +243,26 @@ export default function ProjectsPage() {
   );
 }
 
-function ProjectCard({ project, onDuplicate, onArchive, onDelete }: { project: ProjectSummary; onDuplicate: () => void; onArchive: () => void; onDelete: () => void }) {
+type CardCloud = { linked: boolean; busy: boolean; onSave: () => void; onDelete: () => void };
+
+function ProjectCard({
+  project,
+  onDuplicate,
+  onArchive,
+  onDelete,
+  cloud,
+}: {
+  project: ProjectSummary;
+  onDuplicate: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  /** null when signed out or without the API. */
+  cloud: CardCloud | null;
+}) {
   const logoUrl = useAssetUrl(project.logoAssetId);
   const locale = useLocale();
   const m = useMessages(projectsMessages);
+  const c = useMessages(cloudMessages).projects;
   const cover = project.coverColor ?? project.palette[0] ?? '#FFFFFF';
   const updated = dateFormat(locale).format(new Date(project.updatedAt));
   return (
@@ -223,6 +277,11 @@ function ProjectCard({ project, onDuplicate, onArchive, onDelete }: { project: P
             </span>
           )}
           {project.isDemo && <span className="absolute top-3 left-3 rounded-sm bg-ink px-2 py-0.5 text-xs font-semibold text-white">{m.card.demo}</span>}
+          {cloud?.linked && (
+            <span title={c.badgeTitle} className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-sm bg-panel/90 px-2 py-0.5 text-xs font-semibold text-ink shadow-panel">
+              <Cloud size={12} aria-hidden /> {c.badge}
+            </span>
+          )}
         </div>
         <span className="sr-only">{m.card.open(project.title)}</span>
       </Link>
@@ -237,7 +296,7 @@ function ProjectCard({ project, onDuplicate, onArchive, onDelete }: { project: P
             {project.title}
           </h2>
           <p className="mt-0.5 text-xs text-muted">
-            {m.card.updated} <time dateTime={project.updatedAt}>{updated}</time>
+            {cloud?.busy ? c.saving(project.title) : <>{m.card.updated} <time dateTime={project.updatedAt}>{updated}</time></>}
           </p>
         </div>
         <Menu.Root>
@@ -260,6 +319,16 @@ function ProjectCard({ project, onDuplicate, onArchive, onDelete }: { project: P
               <MenuItem onSelect={onArchive} icon={<Archive size={16} />}>
                 {m.menu.archive}
               </MenuItem>
+              {cloud && !cloud.linked && (
+                <MenuItem onSelect={cloud.onSave} icon={<CloudUpload size={16} />} disabled={cloud.busy}>
+                  {c.saveToCloud}
+                </MenuItem>
+              )}
+              {cloud?.linked && (
+                <MenuItem onSelect={cloud.onDelete} icon={<CloudOff size={16} />}>
+                  {c.deleteFromCloud}
+                </MenuItem>
+              )}
               <Menu.Separator className="my-1 h-px bg-line" />
               <MenuItem onSelect={onDelete} icon={<Trash2 size={16} />} danger>
                 {m.menu.delete}
@@ -274,9 +343,9 @@ function ProjectCard({ project, onDuplicate, onArchive, onDelete }: { project: P
 
 const itemClass = 'flex cursor-pointer items-center gap-2 rounded-sm px-3 py-2 text-sm outline-none data-[highlighted]:bg-paper';
 
-function MenuItem({ children, icon, onSelect, danger }: { children: React.ReactNode; icon: React.ReactNode; onSelect: () => void; danger?: boolean }) {
+function MenuItem({ children, icon, onSelect, danger, disabled }: { children: React.ReactNode; icon: React.ReactNode; onSelect: () => void; danger?: boolean; disabled?: boolean }) {
   return (
-    <Menu.Item onSelect={onSelect} className={cn(itemClass, danger && 'text-danger')}>
+    <Menu.Item onSelect={onSelect} disabled={disabled} className={cn(itemClass, danger && 'text-danger', 'data-[disabled]:cursor-default data-[disabled]:opacity-50')}>
       {icon}
       {children}
     </Menu.Item>

@@ -29,3 +29,7 @@ fonts-src
 # Test output
 test-results
 playwright-report
+
+# API server build and local data
+server-dist
+.data

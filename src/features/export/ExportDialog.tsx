@@ -1,5 +1,8 @@
-import { Archive, Download, ExternalLink, RefreshCw } from 'lucide-react';
+import { Archive, Download, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
+import { ensureAccount } from '@/cloud/account';
+import { ENTITLEMENTS } from '@/cloud/contract';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import type { Project, SectionKind } from '@/domain/schema';
@@ -13,6 +16,10 @@ import { getAssets } from '@/storage/projectRepository';
 import { exportArchive } from './archive';
 import { archiveFileName, pdfFileName } from './fileNames';
 import { track } from '@/lib/analytics';
+import { lockedFeatures, pdfMarks, usePlan } from '@/features/billing/plan';
+import { TEMPLATE_INFO } from '@/templates/templateInfo';
+import { MediaKitPanel } from '@/features/mediakit';
+import { useNavigate } from 'react-router';
 
 type PdfState =
   | { status: 'idle' }
@@ -49,9 +56,12 @@ export function ExportDialog({ open, onOpenChange, project, saveState }: { open:
     setPdf({ status: 'preparing', snapshot });
     try {
       const assets = await getAssets(snapshot.assetIds);
+      // The plan decides the free-plan marks; wait for it so Pro users never get them.
+      const account = await ensureAccount();
+      const entitlements = account.status === 'signedIn' ? account.me.entitlements : ENTITLEMENTS.free;
       // The PDF renderer is large; load it only when export is opened.
       const { generatePdf } = await import('./generatePdf');
-      const result = await generatePdf(snapshot, assets, (phase) => id === runId.current && setPdf({ status: phase, snapshot }));
+      const result = await generatePdf(snapshot, assets, (phase) => id === runId.current && setPdf({ status: phase, snapshot }), pdfMarks(snapshot, entitlements));
       if (id !== runId.current) return;
       urlRef.current = URL.createObjectURL(result.blob);
       setPdf({
@@ -96,6 +106,10 @@ export function ExportDialog({ open, onOpenChange, project, saveState }: { open:
   }
 
   const stale = pdf.status === 'ready' && pdf.snapshot !== project;
+  const { entitlements } = usePlan();
+  const navigate = useNavigate();
+  const locked = lockedFeatures(project, entitlements);
+  const lockedList = locked.map((f) => (f === 'customFonts' ? m.plan.fonts : m.plan.template(TEMPLATE_INFO.find((t) => t.id === project.templateId)?.name ?? project.templateId))).join(', ');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={m.title} wide description={m.description}>
@@ -112,6 +126,17 @@ export function ExportDialog({ open, onOpenChange, project, saveState }: { open:
         {(pdf.status === 'preparing' || pdf.status === 'generating') && <div className="h-1 w-full overflow-hidden rounded bg-paper" aria-hidden><div className="h-full w-1/3 animate-pulse bg-ink/40" /></div>}
         {saveState && saveState.status !== 'saved' && pdf.status !== 'error' && (
           <p className="text-xs text-muted">{m.unsavedNote}</p>
+        )}
+        {locked.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-ink bg-ink p-3 text-sm text-white">
+            <Sparkles size={18} className="shrink-0 text-accent" aria-hidden />
+            <p className="min-w-0 flex-1">{m.plan.locked(lockedList)}</p>
+            <Link to="/pricing" className="inline-flex h-9 items-center rounded-md bg-accent px-3 font-semibold text-ink hover:brightness-95">
+              {m.plan.getPro}
+            </Link>
+          </div>
+        ) : (
+          entitlements.pdfFooter && <p className="text-xs text-muted">{m.plan.footerNote} <Link to="/pricing" className="font-semibold underline">{m.plan.getPro}</Link></p>
         )}
         {pdf.status === 'ready' && pdf.skipped.length > 0 && <p className="text-xs text-muted">{m.skipped(pdf.skipped.map((k) => sections[k]).join(', '))}</p>}
         {stale && (
@@ -141,6 +166,9 @@ export function ExportDialog({ open, onOpenChange, project, saveState }: { open:
           )}
         </div>
         <p className="text-xs text-muted">{m.previewNote}</p>
+      </section>
+      <section className="mt-6 border-t border-line pt-5">
+        <MediaKitPanel project={project} canDownload={entitlements.mediaKit} onUpgrade={() => navigate('/pricing')} />
       </section>
       <section aria-labelledby="zip-h" className="mt-6 flex flex-col gap-3 border-t border-line pt-5">
         <h3 id="zip-h" className="font-bold">

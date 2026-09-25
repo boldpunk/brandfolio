@@ -2,7 +2,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button, IconButton } from '@/components/ui/Button';
 import { FieldShell, SelectField, TextAreaField, TextField, controlClass } from '@/components/ui/Field';
-import { FONT_FAMILIES } from '@/domain/fonts';
+import { resolveFamily } from '@/domain/fonts';
 import { TEXT_LIMITS } from '@/domain/limits';
 import { projectSchema, type Project } from '@/domain/schema';
 import { useMessages } from '@/i18n/core';
@@ -28,11 +28,11 @@ export function useMissingGlyphWarning(texts: string[]): string | null {
   return useMemo(() => {
     const families = new Set(Object.values(project.brand.typography).map((t) => t.familyId));
     const missing = new Set<string>();
-    for (const family of families) for (const ch of FONT_FAMILIES[family].missingGlyphs) if (texts.some((t) => t.includes(ch))) missing.add(ch);
+    for (const family of families) for (const ch of resolveFamily(family, project.brand.customFonts).missingGlyphs) if (texts.some((t) => t.includes(ch))) missing.add(ch);
     return missing.size
       ? m.missingGlyphs([...missing].map((c) => `«${c}» (U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')})`).join(', '))
       : null;
-  }, [project.brand.typography, texts, m]);
+  }, [project.brand.typography, project.brand.customFonts, texts, m]);
 }
 
 export function Panel({ title, children, description }: { title: string; description?: ReactNode; children: ReactNode }) {

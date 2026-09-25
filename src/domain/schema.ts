@@ -6,8 +6,9 @@
  */
 import { z } from 'zod';
 import { isCanonicalHex } from './color';
-import { FONT_FAMILIES, FONT_FAMILY_IDS } from './fonts';
+import { FONT_WEIGHTS, resolveFamily, isBundledFamily } from './fonts';
 import {
+  CUSTOM_FONT_LIMITS,
   IMAGERY_MAX_IMAGES,
   LIST_LIMITS,
   PALETTE_LIMITS,
@@ -21,7 +22,7 @@ import { validationMessages } from '@/i18n/messages/validation';
 /** Messages are read when a check fails, so they follow the current interface language. */
 const v = () => msg(validationMessages);
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export const idSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, { error: () => v().invalidId });
 
@@ -52,22 +53,32 @@ export type BrandColor = z.infer<typeof brandColorSchema>;
 export const TYPOGRAPHY_ROLES = ['heading', 'body', 'caption'] as const;
 export type TypographyRole = (typeof TYPOGRAPHY_ROLES)[number];
 
-export const typographyStyleSchema = z
-  .object({
-    role: z.enum(TYPOGRAPHY_ROLES),
-    familyId: z.enum(FONT_FAMILY_IDS),
-    weight: z.number().int(),
-    /** CSS px in the editor; converted to pt (×72/96) for PDF. */
-    sizePx: z.number().min(8).max(96),
-    /** Unitless multiplier of font size. */
-    lineHeight: z.number().min(0.9).max(2.4),
-    /** Letter spacing in em. */
-    trackingEm: z.number().min(-0.1).max(0.4),
-  })
-  .refine((s) => FONT_FAMILIES[s.familyId].weights.includes(s.weight), {
-    error: () => v().fontWeight,
-    path: ['weight'],
-  });
+/** A brand's own font family (Pro): one uploaded TTF/OTF asset per weight. */
+export const CUSTOM_FONT_CATEGORIES = ['sans', 'serif', 'display', 'mono'] as const;
+export const customFontSchema = z.object({
+  id: idSchema,
+  name: text(60).min(1, { error: () => v().fontNameRequired }),
+  category: z.enum(CUSTOM_FONT_CATEGORIES),
+  files: z
+    .array(z.object({ weight: z.number().int().refine((w) => (FONT_WEIGHTS as readonly number[]).includes(w), { error: () => v().fontWeight }), assetId: idSchema }))
+    .min(1)
+    .max(CUSTOM_FONT_LIMITS.filesPerFamily, { error: () => v().maxItems(CUSTOM_FONT_LIMITS.filesPerFamily) })
+    .refine((files) => new Set(files.map((f) => f.weight)).size === files.length, { error: () => v().fontWeightRepeat }),
+});
+export type CustomFont = z.infer<typeof customFontSchema>;
+
+/** familyId is a bundled family (fonts.ts) or the id of a brand.customFonts entry; checked in findBrokenReferences. */
+export const typographyStyleSchema = z.object({
+  role: z.enum(TYPOGRAPHY_ROLES),
+  familyId: idSchema,
+  weight: z.number().int(),
+  /** CSS px in the editor; converted to pt (×72/96) for PDF. */
+  sizePx: z.number().min(8).max(96),
+  /** Unitless multiplier of font size. */
+  lineHeight: z.number().min(0.9).max(2.4),
+  /** Letter spacing in em. */
+  trackingEm: z.number().min(-0.1).max(0.4),
+});
 export type TypographyStyle = z.infer<typeof typographyStyleSchema>;
 
 // ---------------------------------------------------------------- logo
@@ -235,6 +246,9 @@ export const brandIdentitySchema = z.object({
     body: typographyStyleSchema,
     caption: typographyStyleSchema,
   }),
+  customFonts: z
+    .array(customFontSchema)
+    .max(CUSTOM_FONT_LIMITS.families, { error: () => v().maxItems(CUSTOM_FONT_LIMITS.families) }),
   imagery: imagerySchema,
   voice: voiceSchema,
   mockups: z.object({
@@ -280,7 +294,8 @@ export const sectionsSchema = z
 
 // ---------------------------------------------------------------- project
 
-export const TEMPLATE_IDS = ['editorial', 'studio', 'contrast'] as const;
+/** The first three are free; the rest are Pro templates (templateInfo.ts). */
+export const TEMPLATE_IDS = ['editorial', 'studio', 'contrast', 'noir', 'swiss', 'soft'] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
 export const projectSchema = z
@@ -308,9 +323,9 @@ export type Project = z.infer<typeof projectSchema>;
 
 // ---------------------------------------------------------------- assets
 
-export const ASSET_KINDS = ['logo', 'image'] as const;
+export const ASSET_KINDS = ['logo', 'image', 'font'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
-export const ASSET_MIME_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'] as const;
+export const ASSET_MIME_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'font/ttf', 'font/otf'] as const;
 export type AssetMimeType = (typeof ASSET_MIME_TYPES)[number];
 
 /** Asset metadata; the binary lives beside it (IndexedDB Blob or ZIP entry). */
@@ -338,7 +353,7 @@ export const exportManifestSchema = z.object({
     .array(
       assetMetaSchema.omit({ projectId: true }).extend({
         /** Path inside the archive, always under assets/. */
-        path: z.string().regex(/^assets\/[A-Za-z0-9_-]{1,64}\.(png|jpg|svg)$/),
+        path: z.string().regex(/^assets\/[A-Za-z0-9_-]{1,64}\.(png|jpg|svg|ttf|otf)$/),
         sha256: z.string().regex(/^[0-9a-f]{64}$/),
       }),
     )
@@ -387,6 +402,23 @@ export function findBrokenReferences(project: {
       issues.push({ message: v().missingImage, path: ['brand', 'imagery', 'images', index, 'assetId'] });
     }
   });
+
+  const fontIds = new Set<string>();
+  brand.customFonts.forEach((font, index) => {
+    if (fontIds.has(font.id) || isBundledFamily(font.id)) issues.push({ message: v().fontIdsRepeat, path: ['brand', 'customFonts', index, 'id'] });
+    fontIds.add(font.id);
+    font.files.forEach((file, fileIndex) => {
+      if (!assets.has(file.assetId)) issues.push({ message: v().missingFontFile(font.name), path: ['brand', 'customFonts', index, 'files', fileIndex, 'assetId'] });
+    });
+  });
+  for (const role of TYPOGRAPHY_ROLES) {
+    const style = brand.typography[role];
+    if (!isBundledFamily(style.familyId) && !fontIds.has(style.familyId)) {
+      issues.push({ message: v().unknownFont, path: ['brand', 'typography', role, 'familyId'] });
+    } else if (!resolveFamily(style.familyId, brand.customFonts).weights.includes(style.weight)) {
+      issues.push({ message: v().fontWeight, path: ['brand', 'typography', role, 'weight'] });
+    }
+  }
 
   const checkColor = (id: string | null, path: (string | number)[]) => {
     if (id && !colors.has(id)) issues.push({ message: v().deletedColorRef, path });

@@ -1,4 +1,4 @@
-/** Upload checks for logos and images: file type, size, SVG sanitizing (interface language). */
+/** Upload checks for logos, images and brand fonts: file type, size, SVG sanitizing (interface language). */
 import { defineMessages } from '../core';
 
 export const assetsMessages = defineMessages({
@@ -15,6 +15,14 @@ export const assetsMessages = defineMessages({
     decodeFailed: 'Файл повреждён: браузер не смог его открыть.',
     canvasUnavailable: 'Canvas 2D недоступен',
     pngFailed: 'Не удалось создать PNG',
+    font: {
+      allowed: 'TTF или OTF',
+      invalid: 'Файл повреждён или не является шрифтом TTF/OTF. WOFF и WOFF2 не принимаются: загрузите исходный TTF или OTF.',
+      restricted: 'Лицензия этого шрифта запрещает встраивание в документы (fsType). Такой шрифт нельзя положить в PDF.',
+      variable: 'Это вариативный шрифт: в документе используется его основное начертание. Для точного результата загрузите статические файлы.',
+      loadFailed: 'Браузер не смог открыть этот шрифт.',
+      italic: 'Курсивные начертания пока не поддерживаются. Загрузите прямое: Regular, Medium, Bold и т. п.',
+    },
     svg: {
       unreadable: 'Не удалось прочитать SVG. Сохраните логотип как PNG и загрузите его.',
       tooBig: 'SVG больше 1 МиБ. Упростите файл или загрузите PNG.',
@@ -61,6 +69,14 @@ export const assetsMessages = defineMessages({
     decodeFailed: 'Fayl buzilgan: brauzer uni ocha olmadi.',
     canvasUnavailable: 'Canvas 2D mavjud emas',
     pngFailed: 'PNG yaratib bo‘lmadi',
+    font: {
+      allowed: 'TTF yoki OTF',
+      invalid: 'Fayl buzilgan yoki TTF/OTF shrift emas. WOFF va WOFF2 qabul qilinmaydi: asl TTF yoki OTF faylni yuklang.',
+      restricted: 'Bu shrift litsenziyasi uni hujjatlarga joylashni taqiqlaydi (fsType). Bunday shriftni PDF ga qo‘yib bo‘lmaydi.',
+      variable: 'Bu o‘zgaruvchan shrift: hujjatda uning asosiy ko‘rinishi ishlatiladi. Aniq natija uchun statik fayllarni yuklang.',
+      loadFailed: 'Brauzer bu shriftni ocha olmadi.',
+      italic: 'Kursiv ko‘rinishlar hozircha qo‘llanmaydi. To‘g‘ri ko‘rinishni yuklang: Regular, Medium, Bold va h.k.',
+    },
     svg: {
       unreadable: 'SVG’ni o‘qib bo‘lmadi. Logotipni PNG formatida saqlang va o‘shani yuklang.',
       tooBig: 'SVG 1 MiB dan katta. Faylni soddalashtiring yoki PNG yuklang.',
@@ -107,6 +123,14 @@ export const assetsMessages = defineMessages({
     decodeFailed: 'The file is damaged: the browser could not open it.',
     canvasUnavailable: 'Canvas 2D is not available',
     pngFailed: 'Could not create a PNG',
+    font: {
+      allowed: 'TTF or OTF',
+      invalid: 'The file is damaged or is not a TTF/OTF font. WOFF and WOFF2 are not accepted: upload the original TTF or OTF.',
+      restricted: 'This font’s license forbids embedding it in documents (fsType). It cannot be placed in a PDF.',
+      variable: 'This is a variable font: the document uses its default style. Upload the static files for an exact result.',
+      loadFailed: 'The browser could not open this font.',
+      italic: 'Italic styles are not supported yet. Upload an upright style: Regular, Medium, Bold and so on.',
+    },
     svg: {
       unreadable: 'Could not read the SVG. Save the logo as a PNG and upload that.',
       tooBig: 'The SVG is larger than 1 MiB. Simplify the file or upload a PNG.',

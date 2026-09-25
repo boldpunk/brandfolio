@@ -8,6 +8,7 @@ import { homeMessages } from '@/i18n/messages/home';
 import { useReveal } from '@/lib/useReveal';
 import { TEMPLATE_INFO, useTemplateDescriptions } from '@/templates/templateInfo';
 import { track } from '@/lib/analytics';
+import { ProBadge } from '@/components/ui/ProBadge';
 
 const EX = `${import.meta.env.BASE_URL}examples/`;
 
@@ -15,6 +16,9 @@ const COVERS: Record<string, string> = {
   editorial: EX + 'editorial-p1.jpg',
   studio: EX + 'studio-p1.jpg',
   contrast: EX + 'contrast-p1.jpg',
+  noir: EX + 'noir-p1.jpg',
+  swiss: EX + 'swiss-p1.jpg',
+  soft: EX + 'soft-p1.jpg',
 };
 
 /** Icons for the "what goes inside" cards, in the order of homeMessages.inside. */
@@ -153,7 +157,10 @@ export default function HomePage() {
               <div className="overflow-hidden rounded-sm">
                 <Sheet src={COVERS[info.id] ?? ''} alt={m.templateAlt(info.name)} className="transition-[scale] duration-500 group-hover:scale-[1.02]" />
               </div>
-              <h3 className="mt-4 font-bold">{info.name}</h3>
+              <h3 className="mt-4 flex items-center gap-2 font-bold">
+                {info.name}
+                {info.premium && <ProBadge />}
+              </h3>
               <p className="mt-1 text-sm text-muted">{descriptions[info.id]}</p>
             </li>
           ))}

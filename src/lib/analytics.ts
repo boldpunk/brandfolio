@@ -14,7 +14,8 @@ export type AnalyticsEvent =
   | 'archive_imported'
   | 'template_changed'
   | 'document_language_changed'
-  | 'interface_language_changed';
+  | 'interface_language_changed'
+  | 'media_kit_downloaded';
 
 type Props = Record<string, string | number | boolean>;
 

@@ -1,0 +1,39 @@
+name: Pages preview
+
+# Builds the site for https://boldpunk.github.io/brandfolio/ and publishes it
+# to the gh-pages branch. GitHub Pages serves that branch once it is selected
+# in Settings → Pages (Deploy from a branch → gh-pages, / (root)).
+on:
+  push:
+    branches: [main, claude/brandfolio-v1]
+  workflow_dispatch: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          BASE_PATH: /brandfolio/
+      # Pages has no SPA rewrites: its 404 page is the app itself, so deep
+      # links such as /brandfolio/editor/... still open.
+      - run: cp dist/index.html dist/404.html
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: Publish ${{ github.sha }}

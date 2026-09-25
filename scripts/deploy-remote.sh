@@ -77,6 +77,19 @@ NGINX
   systemctl reload nginx
 fi
 
+# A site written before www resolved lists only the bare domain; widen it
+# (while certbot has not taken the file over yet) so the certificate fits.
+if ! grep -q "ssl_certificate" "$CONF" && ! grep -q "server_name $NAMES;" "$CONF"; then
+  cp "$CONF" "$CONF.bak"
+  sed -i "s/^\( *server_name \).*;/\1$NAMES;/" "$CONF"
+  if nginx -t; then
+    systemctl reload nginx
+  else
+    mv "$CONF.bak" "$CONF"
+  fi
+  rm -f "$CONF.bak"
+fi
+
 if ! command -v certbot >/dev/null 2>&1; then
   echo "certbot is not installed; the site is served over http only"
 elif ! getent ahostsv4 "$DEPLOY_DOMAIN" | awk '{print $1}' | grep -qxF "$(curl -4 -fsS --max-time 10 https://api.ipify.org || echo none)"; then
@@ -84,7 +97,7 @@ elif ! getent ahostsv4 "$DEPLOY_DOMAIN" | awk '{print $1}' | grep -qxF "$(curl -
 elif ! grep -q "ssl_certificate" "$CONF"; then
   echo "=== certificate for $NAMES ==="
   set -- ; for n in $NAMES; do set -- "$@" -d "$n"; done
-  certbot --nginx "$@" --non-interactive --agree-tos --redirect --register-unsafely-without-email \
+  certbot --nginx "$@" --non-interactive --agree-tos --keep-until-expiring --redirect --register-unsafely-without-email \
     || echo "certbot failed: check that the DNS A record of $DEPLOY_DOMAIN points to this server; the site stays on http for now"
 fi
 

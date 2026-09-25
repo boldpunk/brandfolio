@@ -1,5 +1,7 @@
 #!/bin/sh
 # Runs ON the server as root, piped in over SSH by .github/workflows/deploy.yml.
+# Safe on a shared server: it only adds its own nginx site (like molly.conf
+# next to mebelflow.conf) and only reloads nginx after `nginx -t` passes.
 # Publishes one release of the static site into /var/www/brandfolio and keeps
 # the three latest. On the first run it installs nginx and certbot if missing,
 # writes /etc/nginx/sites-available/brandfolio.conf and requests a certificate
@@ -13,15 +15,21 @@ ROOT=/var/www/brandfolio
 UPLOAD=/tmp/brandfolio-upload/$RELEASE.tgz
 CONF=/etc/nginx/sites-available/brandfolio.conf
 
-if ! command -v nginx >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
-  echo "=== installing nginx and certbot ==="
+if ! command -v nginx >/dev/null 2>&1; then
+  # Fresh server only. On a server that already runs nginx (for example with
+  # mebelflow.uz and molly.uz) nothing is installed or reconfigured.
+  echo "=== installing nginx and certbot (fresh server) ==="
   apt-get update -q
   apt-get install -y -q nginx certbot python3-certbot-nginx
   systemctl enable --now nginx
+  if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+    ufw allow 'Nginx Full' >/dev/null
+  fi
 fi
-if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
-  ufw allow 'Nginx Full' >/dev/null
-fi
+
+# Never touch nginx while its current config is broken: that is someone else's
+# problem to fix, and a reload would fail for every site anyway.
+nginx -t
 
 echo "=== release $RELEASE ==="
 mkdir -p "$ROOT/releases/$RELEASE"
@@ -60,11 +68,18 @@ server {
 }
 NGINX
   ln -sf "$CONF" /etc/nginx/sites-enabled/brandfolio.conf
-  nginx -t
+  if ! nginx -t; then
+    # Roll back our site so the other sites keep working.
+    rm -f /etc/nginx/sites-enabled/brandfolio.conf "$CONF"
+    echo "nginx rejected the brandfolio site; it was removed again, other sites untouched"
+    exit 1
+  fi
   systemctl reload nginx
 fi
 
-if ! grep -q "ssl_certificate" "$CONF"; then
+if ! command -v certbot >/dev/null 2>&1; then
+  echo "certbot is not installed; the site is served over http only"
+elif ! grep -q "ssl_certificate" "$CONF"; then
   echo "=== certificate for $NAMES ==="
   set -- ; for n in $NAMES; do set -- "$@" -d "$n"; done
   certbot --nginx "$@" --non-interactive --agree-tos --redirect --register-unsafely-without-email \

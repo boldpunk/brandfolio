@@ -8,7 +8,7 @@ import { createId } from '@/domain/ids';
 import { parseProject } from '@/domain/migrations';
 import { referencedAssetIds, remapProject } from '@/domain/remap';
 import { projectSchema, type Asset, type Project } from '@/domain/schema';
-import { getDb } from './db';
+import { getDb, type AssetRecord } from './db';
 import { IntegrityError, ProjectNotFoundError, RevisionConflictError, StorageWriteError } from './errors';
 
 export type ProjectSummary = {
@@ -61,13 +61,24 @@ export async function getProject(id: string): Promise<Project | null> {
   return raw ? parseProject(raw) : null;
 }
 
+async function toRecord(asset: Asset): Promise<AssetRecord> {
+  const { blob, ...meta } = asset;
+  return { ...meta, bytes: await blob.arrayBuffer() };
+}
+
+function fromRecord(record: AssetRecord): Asset {
+  const { bytes, blob, ...meta } = record;
+  return { ...meta, blob: blob ?? new Blob([bytes ?? new ArrayBuffer(0)], { type: record.mimeType }) };
+}
+
 export async function getAsset(id: string): Promise<Asset | null> {
-  return (await getDb().assets.get(id)) ?? null;
+  const record = await getDb().assets.get(id);
+  return record ? fromRecord(record) : null;
 }
 
 export async function getAssets(ids: readonly string[]): Promise<Asset[]> {
   const found = await getDb().assets.bulkGet([...ids]);
-  return found.filter((a): a is Asset => a !== undefined);
+  return found.filter((a): a is AssetRecord => a !== undefined).map(fromRecord);
 }
 
 /** Creates a project together with its assets, all or nothing. */
@@ -78,11 +89,13 @@ export async function createProject(project: Project, assets: Asset[] = []): Pro
     if (asset.projectId !== valid.id || !assetIds.has(asset.id)) throw new IntegrityError(msg(validationMessages).assetNotInProject(asset.id));
   }
   if (assets.length !== assetIds.size) throw new IntegrityError(msg(validationMessages).assetsIncomplete);
+  // Binaries are read before the transaction: awaiting anything but IndexedDB inside it would end it.
+  const records = await Promise.all(assets.map(toRecord));
   const db = getDb();
   await write(() =>
     db.transaction('rw', db.projects, db.assets, async () => {
       if (await db.projects.get(valid.id)) throw new IntegrityError(msg(validationMessages).duplicateProjectId);
-      await db.assets.bulkAdd(assets);
+      await db.assets.bulkAdd(records);
       await db.projects.add(valid);
     }),
   );
@@ -114,11 +127,12 @@ export async function saveProject(project: Project, expectedRevision: number, no
 
 /** Stores an uploaded asset before the project references it. */
 export async function putAsset(asset: Asset): Promise<void> {
+  const record = await toRecord(asset);
   const db = getDb();
   await write(() =>
     db.transaction('rw', db.projects, db.assets, async () => {
       if (!(await db.projects.get(asset.projectId))) throw new ProjectNotFoundError(asset.projectId);
-      await db.assets.put(asset);
+      await db.assets.put(record);
     }),
   );
 }

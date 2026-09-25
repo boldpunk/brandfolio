@@ -15,9 +15,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npx tsc -p server/tsconfig.json
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run server:build
       - run: npx playwright install --with-deps chromium firefox webkit
       # Chromium, Firefox and WebKit (the engine of Safari on macOS and every iOS browser).
       - run: npm run test:e2e

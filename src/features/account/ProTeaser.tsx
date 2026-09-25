@@ -1,4 +1,5 @@
-import { Check, CreditCard, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, CreditCard, Sparkles } from 'lucide-react';
+import { Link } from 'react-router';
 import type { Plan } from '@/cloud/contract';
 import { useMessages } from '@/i18n/core';
 import { accountMessages } from '@/i18n/messages/account';
@@ -33,6 +34,11 @@ export function ProTeaser({ plan, className }: { plan: Plan; className?: string 
             <strong className="font-semibold">{m.soon}.</strong> <span className="text-white/75">{m.soonText}</span>
           </p>
         </div>
+      )}
+      {!isPro && (
+        <Link to="/pricing" className="mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-ink transition-transform hover:translate-x-0.5">
+          {m.compare} <ArrowRight size={16} aria-hidden />
+        </Link>
       )}
     </section>
   );

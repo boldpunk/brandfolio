@@ -65,7 +65,7 @@ export const projectsMessages = defineMessages({
     notice: {
       label: 'О хранении данных',
       strong: 'Проекты хранятся только в этом браузере на этом устройстве.',
-      text: 'Синхронизации нет. Очистка данных сайта, приватный режим или удаление браузера могут стереть проекты. Для резервной копии скачивайте архив проекта.',
+      text: 'Без аккаунта проекты не синхронизируются: сохраните проект в облако или скачайте архив. Очистка данных сайта, приватный режим или удаление браузера могут стереть проекты. Для резервной копии скачивайте архив проекта.',
       moreBefore: 'Подробнее в',
       moreLink: 'настройках',
       moreAfter: '.',
@@ -135,7 +135,7 @@ export const projectsMessages = defineMessages({
     notice: {
       label: 'Ma’lumotlarni saqlash haqida',
       strong: 'Loyihalar faqat shu qurilmadagi shu brauzerda saqlanadi.',
-      text: 'Sinxronlash yo‘q. Sayt ma’lumotlarini tozalash, maxfiy rejim yoki brauzerni o‘chirib tashlash loyihalarni yo‘qotishi mumkin. Zaxira nusxa uchun loyiha arxivini yuklab oling.',
+      text: 'Akkauntsiz loyihalar sinxronlanmaydi: loyihani bulutga saqlang yoki arxivni yuklab oling. Sayt ma’lumotlarini tozalash, maxfiy rejim yoki brauzerni o‘chirib tashlash loyihalarni yo‘qotishi mumkin. Zaxira nusxa uchun loyiha arxivini yuklab oling.',
       moreBefore: 'Batafsil —',
       moreLink: 'sozlamalarda',
       moreAfter: '.',
@@ -204,7 +204,7 @@ export const projectsMessages = defineMessages({
     notice: {
       label: 'About data storage',
       strong: 'Projects are stored only in this browser on this device.',
-      text: 'There is no sync. Clearing site data, private mode or removing the browser can erase projects. Download the project archive as a backup.',
+      text: 'Without an account projects are not synced: save a project to the cloud or download its archive. Clearing site data, private mode or removing the browser can erase projects. Download the project archive as a backup.',
       moreBefore: 'More in',
       moreLink: 'settings',
       moreAfter: '.',

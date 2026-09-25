@@ -83,7 +83,7 @@ export function EditorShareButton({ autosave, open, onOpenChange }: { autosave: 
             <span aria-hidden className={cn('absolute -top-1 -right-1 size-2 rounded-full ring-2 ring-panel md:hidden', dotClass[tone])} />
           </span>
         }
-        className="px-3 lg:px-4"
+        className="w-10 px-0 lg:w-auto lg:px-4"
       >
         <span className="hidden lg:inline">{s.share}</span>
       </Button>

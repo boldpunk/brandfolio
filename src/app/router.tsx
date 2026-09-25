@@ -13,6 +13,7 @@ const PreviewPage = lazy(() => import('@/features/brandbook/PreviewPage'));
 const AuthPage = lazy(() => import('@/features/account/AuthPage'));
 const AccountPage = lazy(() => import('@/features/account/AccountPage'));
 const SharedPage = lazy(() => import('@/features/share/SharedPage'));
+const PricingPage = lazy(() => import('@/features/billing/PricingPage'));
 
 function Loading() {
   return <p className="p-8 text-muted">{useMessages(commonMessages).loading}</p>;
@@ -34,6 +35,7 @@ export const router = createBrowserRouter(
           { path: '/login', element: page(<AuthPage />) },
           { path: '/register', element: page(<AuthPage />) },
           { path: '/account', element: page(<AccountPage />) },
+          { path: '/pricing', element: page(<PricingPage />) },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

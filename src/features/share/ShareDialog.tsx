@@ -211,7 +211,7 @@ function LinkSection({ me, pending }: { me: Me; pending: boolean }) {
                   <Lock size={16} className="mt-0.5 shrink-0" aria-hidden />
                   <p>
                     {m.proOnly}{' '}
-                    <Link to="/account" className="font-semibold underline underline-offset-2">
+                    <Link to="/pricing" className="font-semibold underline underline-offset-2">
                       {m.proLink}
                     </Link>
                   </p>

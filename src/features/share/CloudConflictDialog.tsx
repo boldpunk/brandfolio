@@ -79,13 +79,10 @@ export function CloudConflictDialog({ open, onOpenChange, autosave }: { open: bo
           </Button>
         </Choice>
         <Choice icon={<CloudUpload size={18} />} hint={m.keepMineHint}>
-          {limited || planLimit ? (
-            <PlanLimitNotice me={me} />
-          ) : (
-            <Button onClick={() => void run('mine')} disabled={busy !== null} className="h-auto min-h-10 py-2 whitespace-normal text-left">
-              {busy === 'mine' ? m.working : m.keepMine}
-            </Button>
-          )}
+          <Button onClick={() => void run('mine')} disabled={busy !== null || limited || planLimit} className="h-auto min-h-10 py-2 whitespace-normal text-left">
+            {busy === 'mine' ? m.working : m.keepMine}
+          </Button>
+          {(limited || planLimit) && <PlanLimitNotice me={me} compact />}
         </Choice>
         {error !== null && !planLimit && (
           <p role="alert" className="text-sm font-semibold text-danger">

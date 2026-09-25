@@ -76,18 +76,25 @@ export default function SharedPage() {
             </Button>
           </div>
         )}
-        {state.status === 'password' && <PasswordForm wrong={state.wrong} onSubmit={(password) => void load(password)} />}
+        {state.status === 'password' && <PasswordForm answer={state} onSubmit={(password) => void load(password, false)} />}
       </main>
     </div>
   );
 }
 
-function PasswordForm({ wrong, onSubmit }: { wrong: boolean; onSubmit: (password: string) => void }) {
+/** Stays on screen while the password is checked; `answer` changes with every server reply. */
+function PasswordForm({ answer, onSubmit }: { answer: { wrong: boolean }; onSubmit: (password: string) => void }) {
   const m = useMessages(shareMessages).page;
   const [password, setPassword] = useState('');
+  const [checking, setChecking] = useState<{ wrong: boolean } | null>(null);
+  // Busy until a new answer arrives (a wrong password returns a new state object).
+  const busy = checking === answer;
+  const wrong = answer.wrong && !busy;
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (password) onSubmit(password);
+    if (!password || busy) return;
+    setChecking(answer);
+    onSubmit(password);
   };
   return (
     <form onSubmit={submit} className="animate-rise rounded-lg border border-line bg-panel p-5 shadow-panel sm:p-6">
@@ -111,8 +118,8 @@ function PasswordForm({ wrong, onSubmit }: { wrong: boolean; onSubmit: (password
           />
         )}
       </FieldShell>
-      <Button type="submit" variant="primary" className="mt-4 w-full" disabled={!password}>
-        {m.open}
+      <Button type="submit" variant="primary" className="mt-4 w-full" disabled={!password || busy}>
+        {busy ? m.loading : m.open}
       </Button>
     </form>
   );

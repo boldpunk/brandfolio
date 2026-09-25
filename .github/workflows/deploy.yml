@@ -71,3 +71,9 @@ jobs:
             echo "$path -> $code"
             [ "$code" = 200 ] || exit 1
           done
+      - name: Other sites on the server
+        if: env.HAS_SECRETS == 'true'
+        run: |
+          for url in https://molly.uz https://mebelflow.uz; do
+            echo "$url -> $(curl -s -o /dev/null -w '%{http_code}' -L --max-time 20 "$url" || true)"
+          done

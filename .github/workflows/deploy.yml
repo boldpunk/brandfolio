@@ -59,12 +59,14 @@ jobs:
 
       - name: Smoke test
         if: env.HAS_SECRETS == 'true'
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
           set -eu
           for path in / /projects /editor/unknown /fonts/Manrope-400.ttf; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DEPLOY_DOMAIN$path" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$DEPLOY_DOMAIN:443:$SSH_HOST" "https://$DEPLOY_DOMAIN$path" || true)
             if [ "$code" != 200 ]; then
-              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://$DEPLOY_DOMAIN$path" || true)
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --resolve "$DEPLOY_DOMAIN:80:$SSH_HOST" "http://$DEPLOY_DOMAIN$path" || true)
             fi
             echo "$path -> $code"
             [ "$code" = 200 ] || exit 1

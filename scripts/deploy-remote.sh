@@ -79,6 +79,8 @@ fi
 
 if ! command -v certbot >/dev/null 2>&1; then
   echo "certbot is not installed; the site is served over http only"
+elif ! getent ahostsv4 "$DEPLOY_DOMAIN" | awk '{print $1}' | grep -qxF "$(curl -4 -fsS --max-time 10 https://api.ipify.org || echo none)"; then
+  echo "DNS of $DEPLOY_DOMAIN does not point to this server yet; certificate postponed, re-run the deploy after DNS is updated"
 elif ! grep -q "ssl_certificate" "$CONF"; then
   echo "=== certificate for $NAMES ==="
   set -- ; for n in $NAMES; do set -- "$@" -d "$n"; done

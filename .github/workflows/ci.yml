@@ -23,6 +23,9 @@ jobs:
       - run: npm run test:e2e
         env:
           PW_ALL_BROWSERS: '1'
+      - name: Page snapshots of failed e2e tests
+        if: failure()
+        run: find test-results -name error-context.md -exec sh -c 'echo "=== $1"; head -c 6000 "$1"' _ {} \;
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

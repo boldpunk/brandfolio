@@ -33,7 +33,11 @@ test('archive round-trip into a clean browser profile', async ({ page, browser }
   await page.getByRole('button', { name: 'Открыть пример' }).click();
   await page.waitForURL(/\/editor\//, { timeout: 30_000 });
   await page.getByRole('button', { name: 'Экспорт' }).click();
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Скачать архив' }).click()]);
+  // Headless Chromium has no PDF viewer, so the preview iframe can emit its own PDF download; wait for the archive.
+  const [download] = await Promise.all([
+    page.waitForEvent('download', (d) => d.suggestedFilename().endsWith('.brandfolio.zip')),
+    page.getByRole('button', { name: 'Скачать архив' }).click(),
+  ]);
   expect(download.suggestedFilename()).toMatch(/\.brandfolio\.zip$/);
   const archive = (await download.path())!;
 

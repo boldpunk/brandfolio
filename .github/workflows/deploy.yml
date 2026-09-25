@@ -1,0 +1,76 @@
+name: Deploy
+
+# Builds the static site and publishes it to the server over SSH, the same way
+# molly.uz is deployed. Nothing runs until the repository has the SSH_HOST,
+# SSH_USER and SSH_PRIVATE_KEY secrets and the DEPLOY_DOMAIN variable.
+on:
+  push:
+    branches: [main, claude/brandfolio-v1]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_DOMAIN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Check secrets
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          missing=""
+          [ -n "$SSH_HOST" ] || missing="$missing SSH_HOST"
+          [ -n "$SSH_USER" ] || missing="$missing SSH_USER"
+          [ -n "$SSH_PRIVATE_KEY" ] || missing="$missing SSH_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::These secrets are empty or unset:$missing"
+            exit 1
+          fi
+
+      - name: Upload build and publish
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
+          RELEASE: ${{ github.sha }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          SSH="ssh -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes $SSH_USER@$SSH_HOST"
+
+          tar -C dist -czf site.tgz .
+          $SSH "mkdir -p /tmp/brandfolio-upload"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes site.tgz "$SSH_USER@$SSH_HOST:/tmp/brandfolio-upload/$RELEASE.tgz"
+          $SSH "sudo -n true 2>/dev/null && S=sudo || S=; \$S env DEPLOY_DOMAIN='$DEPLOY_DOMAIN' RELEASE='$RELEASE' sh -s" < scripts/deploy-remote.sh
+
+      - name: Smoke test
+        env:
+          DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
+        run: |
+          set -eu
+          for path in / /projects /editor/unknown; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DEPLOY_DOMAIN$path" || true)
+            if [ "$code" != 200 ]; then
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://$DEPLOY_DOMAIN$path" || true)
+            fi
+            echo "$path -> $code"
+            [ "$code" = 200 ] || exit 1
+          done

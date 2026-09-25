@@ -93,6 +93,7 @@ scripts/       сборка шрифтов, проверка PDF
 - Netlify: `public/_redirects` (`/* /index.html 200`) попадает в сборку.
 - Vercel: `vercel.json` с rewrite на `/index.html`.
 - nginx: `location / { try_files $uri /index.html; }`.
+- Свой сервер (как molly.uz): `.github/workflows/deploy.yml` собирает сайт и по SSH выкладывает его в `/var/www/brandfolio` со своим nginx-сайтом и сертификатом Let's Encrypt (`scripts/deploy-remote.sh`, другие сайты на сервере не трогает). Workflow ничего не делает, пока в репозитории не заданы секреты `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY` и переменная `DEPLOY_DOMAIN`; DNS домена должен указывать на сервер.
 - Приложение рассчитано на размещение в корне домена. Для подкаталога нужно собрать с `vite build --base=/path/` и поправить пути `/examples/...` на главной.
 
 ## Демо-проект

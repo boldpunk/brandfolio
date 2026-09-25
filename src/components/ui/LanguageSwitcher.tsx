@@ -11,6 +11,8 @@ const SHORT: Record<(typeof LOCALES)[number], string> = { ru: 'RU', uz: 'UZ', en
  * Compact interface language picker for the header. The native select sits
  * invisibly on top of the short code, so it stays keyboard- and
  * screen-reader-friendly everywhere while the header shows only "RU".
+ * WebKit sizes a select to its longest option regardless of `inset-0`, so
+ * the wrapper clips it; otherwise it widens the page on narrow screens.
  */
 export function LanguageSwitcher({ className }: { className?: string }) {
   const locale = useLocale();
@@ -19,7 +21,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'relative inline-flex h-9 items-center gap-1.5 rounded-md px-1.5 text-sm sm:px-2.5 font-semibold text-ink transition-colors hover:bg-ink/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
+        'relative inline-flex h-9 items-center overflow-hidden gap-1.5 rounded-md px-1.5 text-sm sm:px-2.5 font-semibold text-ink transition-colors hover:bg-ink/5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
         className,
       )}
     >
@@ -36,7 +38,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           setLocale(e.target.value);
           track('interface_language_changed', { to: e.target.value });
         }}
-        className="absolute inset-0 cursor-pointer appearance-none opacity-0 focus-visible:outline-none"
+        className="absolute inset-0 h-full w-full min-w-0 cursor-pointer appearance-none opacity-0 focus-visible:outline-none"
       >
         {LOCALES.map((l) => (
           <option key={l} value={l} lang={LOCALE_TAGS[l]}>

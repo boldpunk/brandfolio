@@ -93,6 +93,7 @@ scripts/       сборка шрифтов, проверка PDF
 - Netlify: `public/_redirects` (`/* /index.html 200`) попадает в сборку.
 - Vercel: `vercel.json` с rewrite на `/index.html`.
 - nginx: `location / { try_files $uri /index.html; }`.
+- **brandfolio.uz** (сервер Hetzner): `.github/workflows/deploy.yml` собирает сайт и по SSH выкладывает релиз в `/var/www/brandfolio` (три последних релиза хранятся, переключение через симлинк). При первом запуске `scripts/deploy-remote.sh` ставит nginx и certbot, если их нет, создаёт сайт nginx с SPA fallback и получает сертификат Let's Encrypt. Нужны секреты `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`; без них деплой пропускается.
 - GitHub Pages: `.github/workflows/pages.yml` собирает сайт с `BASE_PATH=/brandfolio/`, копирует `index.html` в `404.html` (у Pages нет rewrites) и публикует ветку `gh-pages`. Адрес: https://boldpunk.github.io/brandfolio/ после выбора ветки `gh-pages` в Settings → Pages.
 - Для размещения в подкаталоге соберите с `BASE_PATH=/path/ npm run build`: пути к ресурсам и маршрутизация берут базу из этой переменной.
 

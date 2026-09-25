@@ -1,0 +1,71 @@
+name: Deploy
+
+# Builds the static site and publishes it to the Hetzner server over SSH for
+# https://brandfolio.uz. Needs the SSH_HOST, SSH_USER and SSH_PRIVATE_KEY
+# secrets; without them the job is skipped. The first run installs nginx and
+# certbot if they are missing and requests the certificate.
+on:
+  push:
+    branches: [main, claude/brandfolio-v1]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DOMAIN: brandfolio.uz
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_SECRETS: ${{ secrets.SSH_HOST != '' && secrets.SSH_USER != '' && secrets.SSH_PRIVATE_KEY != '' }}
+    steps:
+      - name: Secrets missing
+        if: env.HAS_SECRETS != 'true'
+        run: echo "::notice::SSH_HOST, SSH_USER or SSH_PRIVATE_KEY is not set; deploy skipped."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_SECRETS == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_SECRETS == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: env.HAS_SECRETS == 'true'
+        run: npm ci && npm run build
+
+      - name: Upload build and publish
+        if: env.HAS_SECRETS == 'true'
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          RELEASE: ${{ github.sha }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          OPTS="-i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes"
+
+          tar -C dist -czf site.tgz .
+          ssh $OPTS "$SSH_USER@$SSH_HOST" "mkdir -p /tmp/brandfolio-upload"
+          scp $OPTS site.tgz "$SSH_USER@$SSH_HOST:/tmp/brandfolio-upload/$RELEASE.tgz"
+          if [ "$SSH_USER" = root ]; then RUN="sh -s"; else RUN="sudo -n sh -s"; fi
+          ssh $OPTS "$SSH_USER@$SSH_HOST" "DEPLOY_DOMAIN='$DEPLOY_DOMAIN' RELEASE='$RELEASE' $RUN" < scripts/deploy-remote.sh
+
+      - name: Smoke test
+        if: env.HAS_SECRETS == 'true'
+        run: |
+          set -eu
+          for path in / /projects /editor/unknown /fonts/Manrope-400.ttf; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DEPLOY_DOMAIN$path" || true)
+            if [ "$code" != 200 ]; then
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://$DEPLOY_DOMAIN$path" || true)
+            fi
+            echo "$path -> $code"
+            [ "$code" = 200 ] || exit 1
+          done

@@ -8,6 +8,7 @@ import { defineMessages } from '../core';
 export const documentMessages = defineMessages({
   ru: {
     brandbook: 'Брендбук',
+    plan: { madeWith: 'Сделано в Brandfolio · brandfolio.uz', watermark: 'Предпросмотр · Brandfolio Pro' },
     version: (version: string) => `Версия ${version}`,
     sectionNumber: (number: string) => `Раздел ${number}`,
     logoAlt: 'Логотип',
@@ -57,6 +58,7 @@ export const documentMessages = defineMessages({
   },
   uz: {
     brandbook: 'Brendbuk',
+    plan: { madeWith: 'Brandfolio’da yaratilgan · brandfolio.uz', watermark: 'Namuna · Brandfolio Pro' },
     version: (version: string) => `Versiya ${version}`,
     sectionNumber: (number: string) => `Bo‘lim ${number}`,
     logoAlt: 'Logotip',
@@ -106,6 +108,7 @@ export const documentMessages = defineMessages({
   },
   en: {
     brandbook: 'Brand book',
+    plan: { madeWith: 'Made with Brandfolio · brandfolio.uz', watermark: 'Preview · Brandfolio Pro' },
     version: (version: string) => `Version ${version}`,
     sectionNumber: (number: string) => `Section ${number}`,
     logoAlt: 'Logo',

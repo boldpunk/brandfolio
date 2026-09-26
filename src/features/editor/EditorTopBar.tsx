@@ -6,6 +6,7 @@ import { controlClass } from '@/components/ui/Field';
 import { TEXT_LIMITS } from '@/domain/limits';
 import type { TemplateId } from '@/domain/schema';
 import { ExportDialog } from '@/features/export/ExportDialog';
+import { EditorCloudStatus, EditorShareButton } from '@/features/share/EditorCloud';
 import { useMessages } from '@/i18n/core';
 import { editorMessages } from '@/i18n/messages/editor';
 import { validationMessages } from '@/i18n/messages/validation';
@@ -29,6 +30,7 @@ export function EditorTopBar({ autosave, onToggleNav, navOpen }: { autosave: Ret
   const redo = useEditorStore((s) => s.redo);
   const apply = useEditorStore((s) => s.apply);
   const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const m = useMessages(editorMessages).topBar;
 
   // Global undo/redo, but never inside text fields: there the browser's own undo keeps typed text.
@@ -61,6 +63,7 @@ export function EditorTopBar({ autosave, onToggleNav, navOpen }: { autosave: Ret
       )}
       <ProjectTitle title={project.title} onRename={(title) => apply((p) => ({ ...p, title }))} />
       <SaveBadge state={autosave.state} onRetry={() => void autosave.retry()} />
+      <EditorCloudStatus autosave={autosave} onOpen={() => setShareOpen(true)} />
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <IconButton label={m.undo} onClick={undo} disabled={!canUndo}>
           <Undo2 size={18} />
@@ -92,6 +95,7 @@ export function EditorTopBar({ autosave, onToggleNav, navOpen }: { autosave: Ret
         >
           <Eye size={16} /> {m.preview}
         </Link>
+        <EditorShareButton autosave={autosave} open={shareOpen} onOpenChange={setShareOpen} />
         <Button variant="primary" icon={<FileDown size={16} />} onClick={() => setExportOpen(true)}>
           <span className="hidden sm:inline">{m.export}</span>
           <span className="sr-only sm:hidden">{m.export}</span>

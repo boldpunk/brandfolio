@@ -101,5 +101,122 @@ elif ! grep -q "ssl_certificate" "$CONF"; then
     || echo "certbot failed: check that the DNS A record of $DEPLOY_DOMAIN points to this server; the site stays on http for now"
 fi
 
+# ------------------------------------------------------------------ API
+# Accounts, cloud projects and share links (server-dist/server.mjs). Runs as
+# its own system user on 127.0.0.1:3517 with a private Node in
+# /opt/brandfolio/node, so the Node versions of other sites never matter.
+# nginx forwards /api/ to it through a snippet included in our site only.
+API_UPLOAD=/tmp/brandfolio-upload/$RELEASE-api.tgz
+if [ -f "$API_UPLOAD" ]; then
+  API_ROOT=/opt/brandfolio/api
+  NODE_DIR=/opt/brandfolio/node
+  DATA=/var/lib/brandfolio
+  UNIT=/etc/systemd/system/brandfolio-api.service
+  SNIPPET=/etc/nginx/snippets/brandfolio-api.conf
+
+  # node:sqlite needs Node 22.13 or newer; the official build is fetched once.
+  if ! "$NODE_DIR/bin/node" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)' 2>/dev/null; then
+    echo "=== installing Node 22 into $NODE_DIR ==="
+    case "$(uname -m)" in x86_64) ARCH=x64 ;; aarch64) ARCH=arm64 ;; *) echo "unsupported CPU $(uname -m)"; exit 1 ;; esac
+    BASE=https://nodejs.org/dist/latest-v22.x
+    FILE=$(curl -fsSL "$BASE/SHASUMS256.txt" | awk -v a="linux-$ARCH.tar.xz" '$2 ~ a"$" {print $2}')
+    SUM=$(curl -fsSL "$BASE/SHASUMS256.txt" | awk -v f="$FILE" '$2 == f {print $1}')
+    curl -fsSL -o /tmp/brandfolio-node.tar.xz "$BASE/$FILE"
+    echo "$SUM  /tmp/brandfolio-node.tar.xz" | sha256sum -c -
+    rm -rf "$NODE_DIR.tmp" && mkdir -p "$NODE_DIR.tmp"
+    tar -xJf /tmp/brandfolio-node.tar.xz -C "$NODE_DIR.tmp" --strip-components=1
+    rm -f /tmp/brandfolio-node.tar.xz
+    rm -rf "$NODE_DIR" && mv "$NODE_DIR.tmp" "$NODE_DIR"
+  fi
+
+  id brandfolio >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin brandfolio
+  mkdir -p "$DATA" "$API_ROOT/releases/$RELEASE" /etc/brandfolio
+  chown brandfolio:brandfolio "$DATA" && chmod 750 "$DATA"
+  # Settings that are not in the repository (ADMIN_EMAILS, payment keys) live here.
+  [ -f /etc/brandfolio/api.env ] || { printf '# Brandfolio API settings, for example:\n# ADMIN_EMAILS=you@example.com\n' > /etc/brandfolio/api.env; chmod 640 /etc/brandfolio/api.env; chgrp brandfolio /etc/brandfolio/api.env; }
+
+  tar -xzf "$API_UPLOAD" -C "$API_ROOT/releases/$RELEASE"
+  rm -f "$API_UPLOAD"
+  chmod -R a+rX "$API_ROOT/releases/$RELEASE"
+  PREVIOUS=$(readlink "$API_ROOT/current" 2>/dev/null || true)
+  ln -sfn "$API_ROOT/releases/$RELEASE" "$API_ROOT/current.tmp"
+  mv -Tf "$API_ROOT/current.tmp" "$API_ROOT/current"
+
+  cat > "$UNIT.new" <<UNITFILE
+[Unit]
+Description=Brandfolio API
+After=network.target
+
+[Service]
+User=brandfolio
+Group=brandfolio
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3517
+Environment=DATA_DIR=$DATA
+EnvironmentFile=-/etc/brandfolio/api.env
+WorkingDirectory=$API_ROOT/current
+ExecStart=$NODE_DIR/bin/node $API_ROOT/current/server.mjs
+Restart=on-failure
+RestartSec=2
+MemoryMax=512M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$DATA
+
+[Install]
+WantedBy=multi-user.target
+UNITFILE
+  if ! cmp -s "$UNIT.new" "$UNIT"; then mv "$UNIT.new" "$UNIT"; systemctl daemon-reload; else rm -f "$UNIT.new"; fi
+  systemctl enable brandfolio-api >/dev/null 2>&1
+  systemctl restart brandfolio-api
+
+  healthy=no
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if curl -fsS --max-time 3 http://127.0.0.1:3517/api/health >/dev/null 2>&1; then healthy=yes; break; fi
+    sleep 1
+  done
+  if [ "$healthy" != yes ]; then
+    journalctl -u brandfolio-api -n 40 --no-pager || true
+    if [ -n "$PREVIOUS" ]; then
+      echo "API release $RELEASE is unhealthy; rolling back to $PREVIOUS"
+      ln -sfn "$PREVIOUS" "$API_ROOT/current.tmp" && mv -Tf "$API_ROOT/current.tmp" "$API_ROOT/current"
+      systemctl restart brandfolio-api
+    fi
+    exit 1
+  fi
+  ls -1t "$API_ROOT/releases" | tail -n +4 | while read -r old; do rm -rf "$API_ROOT/releases/$old"; done
+
+  mkdir -p /etc/nginx/snippets
+  cat > "$SNIPPET" <<'NGINX'
+# Brandfolio API (brandfolio-api.service). Included from brandfolio.conf only.
+location /api/ {
+    proxy_pass http://127.0.0.1:3517;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 6m;
+    proxy_read_timeout 60s;
+}
+NGINX
+  # Include it in every server block of our site that serves the app (the
+  # HTTPS one after certbot); the HTTP redirect block has no root line.
+  if ! grep -q "brandfolio-api.conf" "$CONF"; then
+    cp "$CONF" "$CONF.bak"
+    sed -i "s|^\( *\)root $ROOT/current;|&\n\1include $SNIPPET;|" "$CONF"
+    if nginx -t; then
+      rm -f "$CONF.bak"
+    else
+      mv "$CONF.bak" "$CONF"
+      echo "nginx rejected the API include; the site keeps working without /api"
+      exit 1
+    fi
+  fi
+fi
+
 nginx -t && systemctl reload nginx
 echo "published: $(readlink "$ROOT/current")"

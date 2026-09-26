@@ -10,6 +10,7 @@ import {
   logoForSurface,
   ratioLabel,
   readableOn,
+  surfaceTokens,
   TYPE_SAMPLE,
   type AssetRef,
   type BrandbookViewModel,
@@ -19,7 +20,7 @@ import {
 } from '@/features/brandbook/viewModel';
 import { LOCALE_TAGS } from '@/i18n/locales';
 import { documentMessages } from '@/i18n/messages/document';
-import { contentWidth, coverTitleScale, fitLogo, PAGE, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
+import { contentWidth, coverColors, coverTitleScale, fitLogo, PAGE, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
 import { MockupsHtml } from './MockupsHtml';
 import './documentFonts.css';
 
@@ -49,7 +50,8 @@ export function AssetImage({ asset, urls, style, alt }: { asset: AssetRef; urls:
 }
 
 export function BrandbookHtml({ vm, urls, only }: { vm: BrandbookViewModel; urls: AssetUrls; only?: SectionVM['kind'] }) {
-  const ctx: Ctx = { vm, t: TEMPLATE_STYLES[vm.templateId], urls, tokens: vm.tokens, m: documentMessages[vm.language] };
+  const t = TEMPLATE_STYLES[vm.templateId];
+  const ctx: Ctx = { vm, t, urls, tokens: surfaceTokens(vm.tokens, t.surface), m: documentMessages[vm.language] };
   const sections = only ? vm.sections.filter((s) => s.kind === only) : vm.sections;
   return (
     <div className="bf-document" lang={LOCALE_TAGS[vm.language]} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -117,7 +119,7 @@ function RunningHeader({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
 function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
   const { t, tokens, m } = ctx;
   const number = String(section.number).padStart(2, '0');
-  const heading = typeCss(tokens.type.heading, t.headingScale);
+  const heading = { ...typeCss(tokens.type.heading, t.headingScale), ...capsCss(t) };
   if (t.opener === 'field') {
     const fg = readableOn(tokens.primary, tokens);
     return (
@@ -155,14 +157,52 @@ function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
   );
 }
 
+/** Headings in capitals for templates that ask for it; a little tracking keeps capitals readable. */
+function capsCss(t: TemplateStyle): CSSProperties {
+  return t.caps ? { textTransform: 'uppercase', letterSpacing: '0.02em' } : {};
+}
+
 function Cover({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind: 'cover' }> }) {
   const { t, tokens, urls, m } = ctx;
-  const background = t.cover === 'bleed' && !section.backgroundChosen ? tokens.primary : section.background;
-  const fg = t.cover === 'bleed' && !section.backgroundChosen ? readableOn(background, tokens) : section.foreground;
-  const logo = logoForSurface(background, section.logo, null);
+  const { background, foreground: fg } = coverColors(t, tokens, section);
+  const logo = logoForSurface(background, section.logo, section.light);
   const meta = [section.version && m.version(section.version), section.dateLabel, section.author].filter(Boolean) as string[];
-  const title = typeCss(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, contentWidth(t)));
+  const titleWidth = t.cover === 'split' ? PAGE.width * 0.46 - t.margin.left - 32 : contentWidth(t);
+  const title = { ...typeCss(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, titleWidth)), ...capsCss(t) };
   const base: CSSProperties = { background, color: fg, minHeight: PAGE.height, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' };
+
+  if (t.cover === 'split') {
+    const field = tokens.primary;
+    const fieldFg = readableOn(field, tokens);
+    return (
+      <div style={{ ...base, flexDirection: 'row' }}>
+        <div style={{ width: '46%', background: field, color: fieldFg, padding: `${t.margin.top}px 32px ${t.margin.bottom}px ${t.margin.left}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <span style={{ ...typeCss(tokens.type.caption), textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.brandbook}</span>
+          <h1 style={{ ...title, margin: 0, overflowWrap: 'anywhere' }}>{section.heading}</h1>
+        </div>
+        <div style={{ flex: 1, padding: `${t.margin.top}px ${t.margin.right}px ${t.margin.bottom}px 40px`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <span style={{ ...typeCss(tokens.type.caption), textAlign: 'right' }}>{meta.join(' · ')}</span>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>{logo && <AssetImage asset={logo} urls={urls} alt={m.logoAlt} style={{ maxWidth: '80%', maxHeight: 160 }} />}</div>
+          {section.subtitle ? <p style={{ ...typeCss(tokens.type.body, 1.2), ...textBlock }}>{section.subtitle}</p> : <span />}
+        </div>
+      </div>
+    );
+  }
+  if (t.cover === 'center') {
+    return (
+      <div style={{ ...base, padding: `${t.margin.top}px ${t.margin.right}px ${t.margin.bottom}px ${t.margin.left}px`, alignItems: 'center', textAlign: 'center' }}>
+        <span style={{ ...typeCss(tokens.type.caption), textTransform: 'uppercase', letterSpacing: '0.12em' }}>{m.brandbook}</span>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 40, width: '100%' }}>
+          {logo && <AssetImage asset={logo} urls={urls} alt={m.logoAlt} style={{ maxWidth: '55%', maxHeight: 150 }} />}
+          <div>
+            <h1 style={{ ...title, margin: 0, overflowWrap: 'anywhere' }}>{section.heading}</h1>
+            {section.subtitle && <p style={{ ...typeCss(tokens.type.body, 1.2), ...textBlock, marginTop: 20, marginLeft: 'auto', marginRight: 'auto', maxWidth: '80%' }}>{section.subtitle}</p>}
+          </div>
+        </div>
+        {meta.length > 0 && <p style={{ ...typeCss(tokens.type.caption), margin: 0, borderTop: `1px solid ${fg}`, paddingTop: 12, minWidth: '40%' }}>{meta.join('   ·   ')}</p>}
+      </div>
+    );
+  }
 
   if (t.cover === 'grid') {
     return (
@@ -212,7 +252,7 @@ function Row({ ctx, label, children }: { ctx: Ctx; label: string; children: Reac
   const { t, tokens } = ctx;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `${t.labelColumn * 100}% 1fr`, gap: 24, padding: '20px 0', borderTop: `1px solid ${tokens.muted}` }}>
-      <h3 style={{ ...typeCss(tokens.type.caption), margin: 0, fontWeight: 700, textTransform: t.id === 'studio' ? 'uppercase' : undefined }}>{label}</h3>
+      <h3 style={{ ...typeCss(tokens.type.caption), margin: 0, fontWeight: 700, textTransform: t.labelCaps ? 'uppercase' : undefined }}>{label}</h3>
       <div style={{ minWidth: 0 }}>{children}</div>
     </div>
   );
@@ -532,6 +572,27 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
             </div>
           </div>
         ))}
+        {note}
+      </div>
+    );
+  }
+  if (t.colors === 'circles') {
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', rowGap: 32, columnGap: 16 }}>
+          {section.colors.map((c) => (
+            <div key={c.id} style={{ breakInside: 'avoid', minWidth: 0, textAlign: 'center' }}>
+              <div style={{ background: c.hex, width: 136, height: 136, borderRadius: '50%', margin: '0 auto', border: `1px solid ${tokens.muted}`, boxSizing: 'border-box' }} />
+              <strong style={{ display: 'block', marginTop: 14, ...typeCss(tokens.type.body), fontWeight: 700, overflowWrap: 'anywhere' }}>{c.name || m.colors.untitled}</strong>
+              <span style={{ display: 'block', ...typeCss(tokens.type.caption), marginBottom: 8 }}>{c.roleLabel}</span>
+              {values(c)}
+              <div style={{ marginTop: 8 }}>
+                <ContrastLine ctx={ctx} label={m.colors.withBackground} ratio={c.contrastWithBackground} />
+                <ContrastLine ctx={ctx} label={m.colors.withText} ratio={c.contrastWithText} />
+              </div>
+            </div>
+          ))}
+        </div>
         {note}
       </div>
     );

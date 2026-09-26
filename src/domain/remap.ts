@@ -30,6 +30,8 @@ export function remapProject(project: Project, newProjectId: string, assetIdMap:
     light: mapNullableAsset(brand.logo.variants.light),
   };
   brand.imagery.images = brand.imagery.images.map((img) => ({ ...img, id: createId('i'), assetId: mapAsset(img.assetId) }));
+  // Font ids stay: typography styles refer to them and they are unique per document.
+  brand.customFonts = brand.customFonts.map((f) => ({ ...f, files: f.files.map((file) => ({ ...file, assetId: mapAsset(file.assetId) })) }));
   brand.voice.qualities = brand.voice.qualities.map((q) => ({ ...q, id: createId('q') }));
   brand.voice.pairs = brand.voice.pairs.map((p) => ({ ...p, id: createId('v') }));
   for (const mockup of Object.values(brand.mockups)) {
@@ -48,10 +50,11 @@ export function remapProject(project: Project, newProjectId: string, assetIdMap:
   };
 }
 
-/** Asset IDs actually used by the brand (logo variants and imagery). */
+/** Asset IDs actually used by the brand (logo variants, imagery and font files). */
 export function referencedAssetIds(project: Pick<Project, 'brand'>): Set<string> {
   const ids = new Set<string>();
   for (const id of Object.values(project.brand.logo.variants)) if (id) ids.add(id);
   for (const img of project.brand.imagery.images) ids.add(img.assetId);
+  for (const font of project.brand.customFonts) for (const file of font.files) ids.add(file.assetId);
   return ids;
 }

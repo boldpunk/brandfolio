@@ -6,8 +6,8 @@ import { buildViewModel, type BrandbookViewModel } from '@/features/brandbook/vi
 import { msg } from '@/i18n/core';
 import { brandMessages } from '@/i18n/messages/brand';
 import { exportMessages } from '@/i18n/messages/export';
-import { BrandbookPdf } from '@/templates/pdf/BrandbookPdf';
-import { registerPdfFonts } from './pdfFonts';
+import { BrandbookPdf, type PdfMarks } from '@/templates/pdf/BrandbookPdf';
+import { registerPdfBrandFonts, registerPdfFonts } from './pdfFonts';
 
 export class MissingAssetError extends Error {
   readonly missing: string[];
@@ -25,7 +25,12 @@ export type PdfResult = { blob: Blob; vm: BrandbookViewModel; pageCount: number 
  * snapshot taken when the user pressed "export", so edits made while the PDF
  * is being generated cannot produce a mixed version.
  */
-export async function generatePdf(snapshot: Project, assets: readonly Asset[], onPhase?: (phase: 'preparing' | 'generating') => void): Promise<PdfResult> {
+export async function generatePdf(
+  snapshot: Project,
+  assets: readonly Asset[],
+  onPhase?: (phase: 'preparing' | 'generating') => void,
+  marks: PdfMarks = { footer: false, watermark: false },
+): Promise<PdfResult> {
   onPhase?.('preparing');
   const byId = new Map(assets.map((a) => [a.id, a]));
   const metas = new Map(assets.map(({ blob: _blob, ...meta }) => [meta.id, meta]));
@@ -36,6 +41,7 @@ export async function generatePdf(snapshot: Project, assets: readonly Asset[], o
   if (missing.length) throw new MissingAssetError(missing);
 
   registerPdfFonts();
+  registerPdfBrandFonts(snapshot.brand.customFonts, new Map(assets.map((a) => [a.id, a.blob])));
   const images = new Map<string, Blob>();
   for (const id of vm.requiredAssetIds) {
     const asset = byId.get(id)!;
@@ -43,7 +49,7 @@ export async function generatePdf(snapshot: Project, assets: readonly Asset[], o
   }
 
   onPhase?.('generating');
-  const blob = await pdf(createElement(BrandbookPdf, { vm, images }) as Parameters<typeof pdf>[0]).toBlob();
+  const blob = await pdf(createElement(BrandbookPdf, { vm, images, marks }) as Parameters<typeof pdf>[0]).toBlob();
   return { blob, vm, pageCount: await countPages(blob) };
 }
 
@@ -60,6 +66,7 @@ function collectReferences(project: Project): { id: string; where: string }[] {
     }
   }
   if (visible.has('imagery')) project.brand.imagery.images.forEach((img, i) => refs.push({ id: img.assetId, where: `${brand.sections.imagery}: ${text.image(i + 1)}` }));
+  for (const font of project.brand.customFonts) for (const file of font.files) refs.push({ id: file.assetId, where: `${brand.sections.typography}: ${font.name} ${file.weight}` });
   return refs;
 }
 

@@ -55,6 +55,7 @@ export function emptyBrand(language: Locale = 'ru'): BrandIdentity {
       body: { role: 'body', familyId: 'noto-sans', weight: 400, sizePx: 16, lineHeight: 1.5, trackingEm: 0 },
       caption: { role: 'caption', familyId: 'noto-sans', weight: 400, sizePx: 12, lineHeight: 1.4, trackingEm: 0.02 },
     },
+    customFonts: [],
     imagery: { images: [], lighting: '', composition: '', processing: '', avoid: '' },
     voice: {
       qualities: [

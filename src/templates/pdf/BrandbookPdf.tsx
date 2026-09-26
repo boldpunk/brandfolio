@@ -12,6 +12,7 @@ import {
   logoForSurface,
   ratioLabel,
   readableOn,
+  surfaceTokens,
   TYPE_SAMPLE,
   type AssetRef,
   type BrandbookViewModel,
@@ -22,7 +23,7 @@ import {
 import { LOCALE_TAGS } from '@/i18n/locales';
 import { documentMessages } from '@/i18n/messages/document';
 import { softBreak } from '@/lib/softBreak';
-import { contentWidth, coverTitleScale, fitLogo, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
+import { contentWidth, coverColors, coverTitleScale, fitLogo, PAGE, rowContentWidth, TEMPLATE_STYLES, type TemplateStyle } from '../templateStyle';
 
 type Style = NonNullable<React.ComponentProps<typeof View>['style']>;
 type TextStyle = Exclude<Style, unknown[]>;
@@ -30,8 +31,14 @@ type TextStyle = Exclude<Style, unknown[]>;
 /** Image sources prepared for the PDF: PNG/JPEG blobs, SVG already rasterized. */
 export type PdfImages = ReadonlyMap<string, Blob>;
 
+/**
+ * Plan marks on the free plan: a small "made with" line on every page, and a
+ * watermark when the document uses Pro features (premium template, brand fonts).
+ */
+export type PdfMarks = { footer: boolean; watermark: boolean };
+
 /** `m`: labels printed inside the document, in the document's language (vm.language). */
-type Ctx = { vm: BrandbookViewModel; t: TemplateStyle; images: PdfImages; tokens: Tokens; m: (typeof documentMessages)['ru'] };
+type Ctx = { vm: BrandbookViewModel; t: TemplateStyle; images: PdfImages; tokens: Tokens; m: (typeof documentMessages)['ru']; marks: PdfMarks };
 
 const u = (px: number) => Math.round(pxToPt(px) * 100) / 100;
 const s = (text: string) => softBreak(text);
@@ -57,8 +64,14 @@ function LogoImg({ asset, images, height, maxWidth }: { asset: AssetRef | null; 
   return <Img asset={asset} images={images} style={{ width: u(width), height: u(width / ratio) }} />;
 }
 
-export function BrandbookPdf({ vm, images }: { vm: BrandbookViewModel; images: PdfImages }) {
-  const ctx: Ctx = { vm, t: TEMPLATE_STYLES[vm.templateId], images, tokens: vm.tokens, m: documentMessages[vm.language] };
+/** Capitals for templates that ask for it, with a little tracking. */
+function caps(t: TemplateStyle, style: TextStyle): TextStyle {
+  return t.caps ? { ...style, textTransform: 'uppercase', letterSpacing: (Number(style.fontSize) || 12) * 0.02 } : style;
+}
+
+export function BrandbookPdf({ vm, images, marks = { footer: false, watermark: false } }: { vm: BrandbookViewModel; images: PdfImages; marks?: PdfMarks }) {
+  const t = TEMPLATE_STYLES[vm.templateId];
+  const ctx: Ctx = { vm, t, images, tokens: surfaceTokens(vm.tokens, t.surface), m: documentMessages[vm.language], marks };
   const meta: DocumentProps = {
     title: vm.documentTitle,
     author: vm.author || undefined,
@@ -84,6 +97,25 @@ function PageNumber({ ctx }: { ctx: Ctx }) {
       <Text style={{ ...type(tokens.type.caption), color: tokens.muted }}>{s(ctx.vm.documentTitle)}</Text>
       <Text style={{ ...type(tokens.type.caption), color: tokens.muted }} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
+  );
+}
+
+/** Free-plan marks, drawn on every page in the page's own colors. */
+function PlanMarks({ ctx, color, footerLeft = 0 }: { ctx: Ctx; color: string; footerLeft?: number | `${number}%` }) {
+  const { marks, m } = ctx;
+  return (
+    <>
+      {marks.watermark && (
+        <View fixed style={{ position: 'absolute', top: 0, left: 0, width: u(PAGE.width), height: u(PAGE.height), alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: 'BF Manrope', fontWeight: 700, fontSize: 34, lineHeight: 1.2, color, opacity: 0.12, transform: 'rotate(-35deg)', textAlign: 'center' }}>{m.plan.watermark}</Text>
+        </View>
+      )}
+      {marks.footer && (
+        <Text fixed style={{ position: 'absolute', bottom: u(12), left: footerLeft, right: 0, textAlign: 'center', fontFamily: 'BF Noto Sans', fontSize: 7, lineHeight: 1.2, color, opacity: 0.6 }}>
+          {m.plan.madeWith}
+        </Text>
+      )}
+    </>
   );
 }
 
@@ -116,6 +148,7 @@ function SectionPage({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
       <Opener ctx={ctx} section={section} />
       <SectionBody ctx={ctx} section={section} />
       <PageNumber ctx={ctx} />
+      <PlanMarks ctx={ctx} color={tokens.text} />
     </Page>
   );
 }
@@ -123,7 +156,7 @@ function SectionPage({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
 function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
   const { t, tokens, m } = ctx;
   const number = String(section.number).padStart(2, '0');
-  const heading = type(tokens.type.heading, t.headingScale);
+  const heading = caps(t, type(tokens.type.heading, t.headingScale));
   if (t.opener === 'field') {
     const fg = readableOn(tokens.primary, tokens);
     return (
@@ -166,13 +199,49 @@ function Opener({ ctx, section }: { ctx: Ctx; section: SectionVM }) {
 
 function CoverPage({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { kind: 'cover' }> }) {
   const { t, tokens, images, m } = ctx;
-  const background = t.cover === 'bleed' && !section.backgroundChosen ? tokens.primary : section.background;
-  const fg = t.cover === 'bleed' && !section.backgroundChosen ? readableOn(background, tokens) : section.foreground;
-  const logo = logoForSurface(background, section.logo, null);
+  const { background, foreground: fg } = coverColors(t, tokens, section);
+  const logo = logoForSurface(background, section.logo, section.light);
   const meta = [section.version && m.version(section.version), section.dateLabel, section.author].filter(Boolean) as string[];
-  const title = { ...type(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, contentWidth(t))), color: fg };
+  const titleWidth = t.cover === 'split' ? PAGE.width * 0.46 - t.margin.left - 32 : contentWidth(t);
+  const title = { ...caps(t, type(tokens.type.heading, coverTitleScale(section.heading, t.cover === 'bleed' ? 2.4 : 2, tokens.type.heading.sizePx, titleWidth))), color: fg };
   const pad = { paddingTop: u(t.margin.top), paddingRight: u(t.margin.right), paddingBottom: u(t.margin.bottom), paddingLeft: u(t.margin.left) };
   const page = { backgroundColor: background, color: fg, ...pad, ...type(tokens.type.body) };
+  const marks = <PlanMarks ctx={ctx} color={fg} />;
+
+  if (t.cover === 'split') {
+    const field = tokens.primary;
+    const fieldFg = readableOn(field, tokens);
+    return (
+      <Page size="A4" style={{ backgroundColor: background, color: fg, flexDirection: 'row', ...type(tokens.type.body) }}>
+        <View style={{ width: '46%', backgroundColor: field, paddingTop: u(t.margin.top), paddingBottom: u(t.margin.bottom), paddingLeft: u(t.margin.left), paddingRight: u(32), justifyContent: 'space-between' }}>
+          <Text style={{ ...type(tokens.type.caption), color: fieldFg, textTransform: 'uppercase', letterSpacing: 0.8 }}>{m.brandbook}</Text>
+          <Text style={{ ...title, color: fieldFg }}>{s(section.heading)}</Text>
+        </View>
+        <View style={{ flex: 1, paddingTop: u(t.margin.top), paddingBottom: u(t.margin.bottom), paddingLeft: u(40), paddingRight: u(t.margin.right), justifyContent: 'space-between' }}>
+          <Text style={{ ...type(tokens.type.caption), color: fg, textAlign: 'right' }}>{meta.join(' · ')}</Text>
+          <View style={{ alignItems: 'center' }}>
+            <LogoImg asset={logo} images={images} height={140} maxWidth={300} />
+          </View>
+          {section.subtitle ? <Text style={{ ...type(tokens.type.body, 1.2), color: fg }}>{s(section.subtitle)}</Text> : <View />}
+        </View>
+        <PlanMarks ctx={ctx} color={fg} footerLeft="46%" />
+      </Page>
+    );
+  }
+  if (t.cover === 'center') {
+    return (
+      <Page size="A4" style={{ ...page, alignItems: 'center' }}>
+        <Text style={{ ...type(tokens.type.caption), color: fg, textTransform: 'uppercase', letterSpacing: 1.2 }}>{m.brandbook}</Text>
+        <View style={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+          <LogoImg asset={logo} images={images} height={140} maxWidth={340} />
+          <Text style={{ ...title, textAlign: 'center', marginTop: logo ? u(40) : 0 }}>{s(section.heading)}</Text>
+          {section.subtitle ? <Text style={{ ...type(tokens.type.body, 1.2), color: fg, textAlign: 'center', marginTop: u(20), maxWidth: '80%' }}>{s(section.subtitle)}</Text> : null}
+        </View>
+        {meta.length > 0 && <Text style={{ ...type(tokens.type.caption), color: fg, textAlign: 'center', borderTopWidth: 0.75, borderTopColor: fg, paddingTop: u(12), minWidth: '40%' }}>{meta.join('   ·   ')}</Text>}
+        {marks}
+      </Page>
+    );
+  }
 
   if (t.cover === 'grid') {
     return (
@@ -186,6 +255,7 @@ function CoverPage({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { k
         </View>
         <Text style={title}>{s(section.heading)}</Text>
         {section.subtitle ? <Text style={{ ...type(tokens.type.body, 1.25), marginTop: u(16), maxWidth: '75%', color: fg }}>{s(section.subtitle)}</Text> : null}
+        {marks}
       </Page>
     );
   }
@@ -198,6 +268,7 @@ function CoverPage({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { k
           {section.subtitle ? <Text style={{ ...type(tokens.type.body, 1.3), marginTop: u(20), color: fg }}>{s(section.subtitle)}</Text> : null}
           {meta.length > 0 && <Text style={{ ...type(tokens.type.caption), marginTop: u(40), borderTopWidth: 3, borderTopColor: fg, paddingTop: u(12), color: fg }}>{meta.join('   ·   ')}</Text>}
         </View>
+        {marks}
       </Page>
     );
   }
@@ -216,6 +287,7 @@ function CoverPage({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { k
           ))}
         </View>
       )}
+      {marks}
     </Page>
   );
 }
@@ -224,7 +296,7 @@ function Row({ ctx, label, children }: { ctx: Ctx; label: string; children: Reac
   const { t, tokens } = ctx;
   return (
     <View style={{ flexDirection: 'row', paddingVertical: u(20), borderTopWidth: 0.75, borderTopColor: tokens.muted }}>
-      <Text minPresenceAhead={u(60)} style={{ ...type(tokens.type.caption), fontWeight: 700, width: `${t.labelColumn * 100}%`, paddingRight: u(24), textTransform: t.id === 'studio' ? 'uppercase' : 'none' }}>
+      <Text minPresenceAhead={u(60)} style={{ ...type(tokens.type.caption), fontWeight: 700, width: `${t.labelColumn * 100}%`, paddingRight: u(24), textTransform: t.labelCaps ? 'uppercase' : 'none' }}>
         {label}
       </Text>
       <View style={{ flex: 1 }}>{children}</View>
@@ -262,7 +334,7 @@ function ListRow({ ctx, label, items, ordered }: { ctx: Ctx; label: string; item
   return (
     <View style={{ paddingVertical: u(20), borderTopWidth: 0.75, borderTopColor: tokens.muted }}>
       <View wrap={false} style={{ flexDirection: 'row' }}>
-        <Text style={{ ...type(tokens.type.caption), fontWeight: 700, width: labelWidth, paddingRight: u(24), textTransform: t.id === 'studio' ? 'uppercase' : 'none' }}>{label}</Text>
+        <Text style={{ ...type(tokens.type.caption), fontWeight: 700, width: labelWidth, paddingRight: u(24), textTransform: t.labelCaps ? 'uppercase' : 'none' }}>{label}</Text>
         <View style={{ flex: 1 }}>{bulletText(ctx, items[0] ?? '', 0, ordered)}</View>
       </View>
       {items.length > 1 && <View style={{ marginLeft: labelWidth }}>{items.slice(1).map((item, i) => bulletText(ctx, item, i + 1, ordered))}</View>}
@@ -601,6 +673,26 @@ function ColorsBody({ ctx, section }: { ctx: Ctx; section: Extract<SectionVM, { 
             </View>
           </View>
         ))}
+        {note}
+      </View>
+    );
+  }
+  if (t.colors === 'circles') {
+    return (
+      <View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {section.colors.map((c, i) => (
+            <View key={c.id} wrap={false} style={{ width: '31.6%', marginLeft: i % 3 ? '2.6%' : 0, marginBottom: u(28), alignItems: 'center' }}>
+              <View style={{ backgroundColor: c.hex, width: u(136), height: u(136), borderRadius: u(68), borderWidth: 0.75, borderColor: tokens.muted }} />
+              <Text style={{ ...type(tokens.type.body), fontWeight: 700, marginTop: u(14), textAlign: 'center' }}>{softBreak(c.name || m.untitled, 10, 8)}</Text>
+              <Text style={{ ...type(tokens.type.caption), marginBottom: u(8), textAlign: 'center' }}>{c.roleLabel}</Text>
+              <View style={{ alignItems: 'center' }}>{values(c)}</View>
+              <View style={{ marginTop: u(8), alignItems: 'center' }}>
+                <ContrastLines ctx={ctx} c={c} />
+              </View>
+            </View>
+          ))}
+        </View>
         {note}
       </View>
     );

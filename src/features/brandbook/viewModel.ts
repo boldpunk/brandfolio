@@ -5,7 +5,7 @@
  * and no URLs; assets are referenced by ID and resolved by each renderer.
  */
 import { contrastRatio, formatHsl, formatRatio, formatRgb, hexToRgb, readableTextOn, rgbToHsl } from '@/domain/color';
-import { FONT_FAMILIES, pxToPt, WEIGHT_LABELS } from '@/domain/fonts';
+import { pxToPt, resolveFamily, WEIGHT_LABELS, type CustomFontFamily } from '@/domain/fonts';
 import type {
   AssetMeta,
   BrandColor,
@@ -82,6 +82,8 @@ export type SectionVM =
       dateLabel: string;
       author: string;
       logo: AssetRef | null;
+      /** Light logo version, used when a template puts the cover on a dark surface. */
+      light: AssetRef | null;
       background: string;
       /** False when the user left the cover background on automatic. */
       backgroundChosen: boolean;
@@ -176,8 +178,8 @@ function mix(a: string, b: string, amount: number): string {
   return `#${c(x.r, y.r)}${c(x.g, y.g)}${c(x.b, y.b)}`.toUpperCase();
 }
 
-function resolveType(style: TypographyStyle, language: Locale): ResolvedType {
-  const family = FONT_FAMILIES[style.familyId];
+function resolveType(style: TypographyStyle, language: Locale, customFonts: readonly CustomFontFamily[]): ResolvedType {
+  const family = resolveFamily(style.familyId, customFonts);
   return {
     role: style.role,
     roleLabel: brandMessages[language].typeRoles[style.role],
@@ -206,9 +208,9 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
   const tokens: Tokens = {
     ...base,
     type: {
-      heading: resolveType(brand.typography.heading, language),
-      body: resolveType(brand.typography.body, language),
-      caption: resolveType(brand.typography.caption, language),
+      heading: resolveType(brand.typography.heading, language, brand.customFonts),
+      body: resolveType(brand.typography.body, language, brand.customFonts),
+      caption: resolveType(brand.typography.caption, language, brand.customFonts),
     },
   };
   const colorHex = (id: string | null) => (id ? brand.colors.find((c) => c.id === id)?.hex : undefined);
@@ -259,6 +261,7 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
           dateLabel: formatDate(brand.cover.date, language),
           author: brand.cover.author,
           logo: need(coverLogo),
+          light: need(lightLogo),
           background,
           backgroundChosen: colorHex(brand.cover.backgroundColorId) !== undefined,
           foreground: contrastRatio(base.text, background) >= contrastRatio(base.background, background) ? base.text : base.background,
@@ -412,6 +415,20 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
 }
 
 /** Human text for a contrast ratio used in documents. */
+/**
+ * Tokens for a template's page surface. 'dark' swaps the brand's background
+ * and text colors (an inverted book); 'tint' washes the background with a
+ * little of the primary color. Brand colors themselves never change.
+ */
+export function surfaceTokens(tokens: Tokens, surface: 'light' | 'dark' | 'tint'): Tokens {
+  if (surface === 'dark') return { ...tokens, background: tokens.text, text: tokens.background, muted: mix(tokens.background, tokens.text, 0.45) };
+  if (surface === 'tint') {
+    const background = mix(tokens.background, tokens.primary, 0.08);
+    return { ...tokens, background, muted: mix(tokens.text, background, 0.35) };
+  }
+  return tokens;
+}
+
 export function ratioLabel(ratio: number): string {
   return `${formatRatio(ratio)}:1`;
 }

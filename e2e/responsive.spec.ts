@@ -16,7 +16,7 @@ test('no horizontal page scroll at the reference widths', async ({ page }) => {
   const previewUrl = editorUrl.replace('/editor/', '/preview/');
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width < 768 ? 800 : 900 });
-    for (const url of ['/', '/projects', '/settings', editorUrl, previewUrl]) {
+    for (const url of ['/', '/projects', '/settings', '/pricing', editorUrl, previewUrl]) {
       await page.goto(url);
       await page.waitForLoadState('networkidle');
       await noHorizontalScroll(page, `${url} at ${width}px`);

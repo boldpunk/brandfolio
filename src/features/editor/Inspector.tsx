@@ -3,6 +3,7 @@ import { LOCALE_NAMES, LOCALE_TAGS, LOCALES, useMessages, type Locale } from '@/
 import { brandMessages } from '@/i18n/messages/brand';
 import { editorMessages } from '@/i18n/messages/editor';
 import { useTemplateInfo } from '@/templates/templateInfo';
+import { ProBadge } from '@/components/ui/ProBadge';
 import { useEditorStore, useProject } from './editorStore';
 import { ImageryPanel, LogoPanel } from './inspector/AssetPanels';
 import { ColorsPanel } from './inspector/ColorsPanel';
@@ -58,7 +59,10 @@ function DocumentPanel() {
                 track('template_changed', { template: t.id });
               }} />
             <span>
-              <span className="block text-sm font-bold">{t.name}</span>
+              <span className="flex items-center gap-2 text-sm font-bold">
+                {t.name}
+                {t.premium && <ProBadge />}
+              </span>
               <span className="block text-xs text-muted">{t.description}</span>
             </span>
           </label>

@@ -79,6 +79,121 @@
   }
 }
 
+/* ------------------------------------------------------------ motion */
+
+@theme {
+  --animate-rise: rise 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-sheet-left: sheet-left 800ms cubic-bezier(0.2, 0.7, 0.2, 1) 120ms both;
+  --animate-sheet-right: sheet-right 800ms cubic-bezier(0.2, 0.7, 0.2, 1) 240ms both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes sheet-left {
+  from {
+    opacity: 0;
+    transform: translateY(24px) rotate(-2deg);
+  }
+}
+@keyframes sheet-right {
+  from {
+    opacity: 0;
+    transform: translateY(32px) rotate(2deg);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* Scroll reveal (lib/useReveal.ts): only elements the hook hid are animated. */
+[data-reveal='hidden'] {
+  opacity: 0;
+  transform: translateY(16px);
+}
+[data-reveal='shown'] {
+  transition:
+    opacity 600ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 200ms,
+    translate 200ms;
+}
+
+/* Hero sheets lean in slightly on hover (pointer devices only). */
+@media (hover: hover) {
+  .hero-desk img {
+    transition: transform 500ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .hero-desk:hover img:first-child {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+  .hero-desk:hover img:last-child {
+    transform: translateY(-4px) rotate(1deg);
+  }
+}
+
+/* Radix dialogs and toasts. Tailwind 4 centres with the `translate` property, so these keyframes only use `transform`. */
+.dialog-overlay[data-state='open'] {
+  animation: fade-in 160ms ease-out;
+}
+.dialog-overlay[data-state='closed'] {
+  animation: fade-out 120ms ease-in;
+}
+.dialog-content[data-state='open'] {
+  animation: pop-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.dialog-content[data-state='closed'] {
+  animation: pop-out 120ms ease-in;
+}
+.toast {
+  animation: toast-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* FAQ answers slide open where the browser supports animating details. */
+.faq::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 250ms ease,
+    content-visibility 250ms allow-discrete;
+}
+.faq[open]::details-content {
+  block-size: auto;
+}
+@supports (interpolate-size: allow-keywords) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

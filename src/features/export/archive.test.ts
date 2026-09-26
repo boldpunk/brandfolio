@@ -51,6 +51,14 @@ describe('project archive', () => {
     expect(imported.assets.every((a) => a.projectId === imported.project.id)).toBe(true);
   });
 
+  it('writes the README in the document language', async () => {
+    const { project, assets } = await sample();
+    const readme = async (language: Project['language']) => new TextDecoder().decode((await zipOf(await exportArchive({ ...project, language }, assets)))['README.txt']);
+    expect(await readme('ru')).toContain('Как восстановить');
+    expect(await readme('uz')).toContain('Qanday tiklash mumkin');
+    expect(await readme('en')).toContain('How to restore');
+  });
+
   it('writes CSS and JSON tokens from the palette', async () => {
     const { project } = await sample();
     project.brand.colors = [{ id: 'c1', name: 'Графит', role: 'text', hex: '#242424' }, { id: 'c2', name: 'Фон', role: 'background', hex: '#FFFFFF' }];

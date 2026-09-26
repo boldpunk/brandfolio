@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 const WIDTHS = [360, 390, 768, 1024, 1440];
 
-async function noHorizontalScroll(page: Page) {
+async function noHorizontalScroll(page: Page, where = '') {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
+  expect(overflow, `horizontal overflow ${where}`).toBeLessThanOrEqual(0);
 }
 
 test('no horizontal page scroll at the reference widths', async ({ page }) => {
@@ -19,7 +19,7 @@ test('no horizontal page scroll at the reference widths', async ({ page }) => {
     for (const url of ['/', '/projects', '/settings', editorUrl, previewUrl]) {
       await page.goto(url);
       await page.waitForLoadState('networkidle');
-      await noHorizontalScroll(page);
+      await noHorizontalScroll(page, `${url} at ${width}px`);
     }
   }
 });

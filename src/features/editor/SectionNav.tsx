@@ -3,8 +3,10 @@ import { useState, type DragEvent } from 'react';
 import { IconButton } from '@/components/ui/Button';
 import { useNotify } from '@/components/ui/Announcer';
 import { canHideSection, moveSection, placeSection, setSectionVisible } from '@/domain/operations';
-import { SECTION_LABELS } from '@/domain/project';
 import type { SectionKind } from '@/domain/schema';
+import { useMessages } from '@/i18n/core';
+import { brandMessages } from '@/i18n/messages/brand';
+import { editorMessages } from '@/i18n/messages/editor';
 import { cn } from '@/lib/cn';
 import { useEditorStore, useProject } from './editorStore';
 
@@ -18,6 +20,8 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
   const setView = useEditorStore((s) => s.setView);
   const apply = useEditorStore((s) => s.apply);
   const notify = useNotify();
+  const m = useMessages(editorMessages).nav;
+  const labels = useMessages(brandMessages).sections;
   const [dragging, setDragging] = useState<SectionKind | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
@@ -29,7 +33,7 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
   const move = (kind: SectionKind, dir: -1 | 1) => {
     apply((p) => moveSection(p, kind, dir));
     const index = project.sections.findIndex((s) => s.kind === kind) + dir;
-    notify(`«${SECTION_LABELS[kind]}» теперь на позиции ${index + 1}`);
+    notify(m.moved(labels[kind], index + 1));
   };
 
   const onDrop = (event: DragEvent, index: number) => {
@@ -40,16 +44,16 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
   };
 
   return (
-    <nav aria-label="Разделы брендбука" className="flex flex-col gap-1 p-3">
+    <nav aria-label={m.label} className="flex flex-col gap-1 p-3">
       <button
         type="button"
         onClick={() => pick('all')}
         aria-current={view === 'all' ? 'page' : undefined}
         className={cn('flex h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold', view === 'all' ? 'bg-ink text-white' : 'hover:bg-ink/5')}
       >
-        <Files size={16} /> Весь документ
+        <Files size={16} /> {m.wholeDocument}
       </button>
-      <p className="mt-3 mb-1 px-3 text-xs font-semibold tracking-wide text-muted uppercase">Разделы</p>
+      <p className="mt-3 mb-1 px-3 text-xs font-semibold tracking-wide text-muted uppercase">{m.sections}</p>
       <ol className="flex flex-col gap-0.5">
         {project.sections.map((section, index) => {
           const isCover = section.kind === 'cover';
@@ -90,15 +94,15 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
                 aria-current={active ? 'page' : undefined}
                 className={cn('min-w-0 flex-1 truncate py-2 text-left text-sm', active && 'font-bold', !section.visible && 'text-muted line-through')}
               >
-                {SECTION_LABELS[section.kind]}
-                {!section.visible && <span className="sr-only"> (скрыт)</span>}
+                {labels[section.kind]}
+                {!section.visible && <span className="sr-only">{m.hidden}</span>}
               </button>
               {!isCover && (
                 <span className="hidden group-focus-within:flex group-hover:flex [@media(hover:none)]:flex">
-                  <IconButton label={`Выше: ${SECTION_LABELS[section.kind]}`} size="sm" className="size-6" disabled={index <= 1} onClick={() => move(section.kind, -1)}>
+                  <IconButton label={m.moveUp(labels[section.kind])} size="sm" className="size-6" disabled={index <= 1} onClick={() => move(section.kind, -1)}>
                     <ChevronUp size={14} />
                   </IconButton>
-                  <IconButton label={`Ниже: ${SECTION_LABELS[section.kind]}`} size="sm" className="size-6" disabled={index === project.sections.length - 1} onClick={() => move(section.kind, 1)}>
+                  <IconButton label={m.moveDown(labels[section.kind])} size="sm" className="size-6" disabled={index === project.sections.length - 1} onClick={() => move(section.kind, 1)}>
                     <ChevronDown size={14} />
                   </IconButton>
                 </span>
@@ -106,10 +110,10 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
               <IconButton
                 label={
                   hideBlocked
-                    ? 'Нельзя скрыть последний видимый раздел'
+                    ? m.cannotHideLast
                     : section.visible
-                      ? `Скрыть раздел «${SECTION_LABELS[section.kind]}»`
-                      : `Показать раздел «${SECTION_LABELS[section.kind]}»`
+                      ? m.hideSection(labels[section.kind])
+                      : m.showSection(labels[section.kind])
                 }
                 aria-pressed={!section.visible}
                 size="sm"
@@ -123,7 +127,7 @@ export function SectionNav({ onPicked }: { onPicked?: () => void }) {
           );
         })}
       </ol>
-      <p className="mt-3 px-3 text-xs text-muted">Перетащите раздел или используйте стрелки. Обложка всегда первая.</p>
+      <p className="mt-3 px-3 text-xs text-muted">{m.hint}</p>
     </nav>
   );
 }

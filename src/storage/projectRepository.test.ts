@@ -52,6 +52,21 @@ async function projectWithLogo(): Promise<{ project: Project; asset: Asset }> {
 }
 
 describe('projectRepository', () => {
+  it('stores asset bytes as an ArrayBuffer and reads legacy Blob records', async () => {
+    const { project, asset } = await projectWithLogo();
+    const stored = await db.assets.get(asset.id);
+    expect(stored?.blob).toBeUndefined();
+    expect(stored?.bytes).toBeInstanceOf(ArrayBuffer);
+    const [read] = await getAssets([asset.id]);
+    expect(read!.blob.type).toBe('image/png');
+    expect([...new Uint8Array(await read!.blob.arrayBuffer())]).toEqual([1, 2, 3, 4]);
+
+    const legacy = logoAsset(project.id);
+    await db.assets.put(legacy);
+    const [old] = await getAssets([legacy.id]);
+    expect([...new Uint8Array(await old!.blob.arrayBuffer())]).toEqual([1, 2, 3, 4]);
+  });
+
   it('creates, reads and lists projects', async () => {
     const { project } = await projectWithLogo();
     expect(await getProject(project.id)).toEqual(project);

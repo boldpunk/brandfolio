@@ -1,3 +1,5 @@
+import type { Locale } from '@/i18n/locales';
+import { brandMessages } from '@/i18n/messages/brand';
 import { createId } from './ids';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -8,17 +10,6 @@ import {
   type TemplateId,
 } from './schema';
 
-export const SECTION_LABELS: Record<SectionConfig['kind'], string> = {
-  cover: 'Обложка',
-  about: 'О бренде',
-  logo: 'Логотип',
-  colors: 'Цвета',
-  typography: 'Типографика',
-  imagery: 'Стиль изображений',
-  voice: 'Тон общения',
-  applications: 'Примеры применения',
-  contacts: 'Контакты',
-};
 
 export function defaultSections(): SectionConfig[] {
   return SECTION_KINDS.map((kind) => ({ kind, visible: true }));
@@ -29,7 +20,8 @@ export function defaultSections(): SectionConfig[] {
  * The palette starts with two neutral colors because a brandbook needs at
  * least two (background and text) for any layout to render.
  */
-export function emptyBrand(): BrandIdentity {
+export function emptyBrand(language: Locale = 'ru'): BrandIdentity {
+  const names = brandMessages[language].defaultColorNames;
   const background = createId('c');
   const textColor = createId('c');
   return {
@@ -55,8 +47,8 @@ export function emptyBrand(): BrandIdentity {
       previewColorId: null,
     },
     colors: [
-      { id: background, name: 'Фон', role: 'background', hex: '#FFFFFF' },
-      { id: textColor, name: 'Текст', role: 'text', hex: '#1A1A1A' },
+      { id: background, name: names.background, role: 'background', hex: '#FFFFFF' },
+      { id: textColor, name: names.text, role: 'text', hex: '#1A1A1A' },
     ],
     typography: {
       heading: { role: 'heading', familyId: 'manrope', weight: 700, sizePx: 40, lineHeight: 1.1, trackingEm: -0.01 },
@@ -110,7 +102,12 @@ export function emptyBrand(): BrandIdentity {
   };
 }
 
-export function createEmptyProject(title: string, templateId: TemplateId = 'editorial', now = new Date()): Project {
+export function createEmptyProject(
+  title: string,
+  templateId: TemplateId = 'editorial',
+  now = new Date(),
+  language: Locale = 'ru',
+): Project {
   const iso = now.toISOString();
   return {
     id: createId('p'),
@@ -120,8 +117,9 @@ export function createEmptyProject(title: string, templateId: TemplateId = 'edit
     createdAt: iso,
     updatedAt: iso,
     templateId,
+    language,
     isDemo: false,
-    brand: emptyBrand(),
+    brand: emptyBrand(language),
     sections: defaultSections(),
     assetIds: [],
   };

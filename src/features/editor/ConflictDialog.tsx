@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { useMessages } from '@/i18n/core';
+import { editorMessages } from '@/i18n/messages/editor';
 
 /** Shown when another tab saved this project first. Autosave is paused until the user decides. */
 export function ConflictDialog({ open, onReload, onSaveCopy }: { open: boolean; onReload: () => Promise<void>; onSaveCopy: () => Promise<void> }) {
   const [busy, setBusy] = useState<null | 'reload' | 'copy'>(null);
   const [error, setError] = useState<string | null>(null);
+  const m = useMessages(editorMessages).conflict;
   const run = async (kind: 'reload' | 'copy') => {
     setBusy(kind);
     setError(null);
@@ -21,20 +24,20 @@ export function ConflictDialog({ open, onReload, onSaveCopy }: { open: boolean; 
     <Dialog
       open={open}
       onOpenChange={() => undefined}
-      title="Проект изменён в другой вкладке"
-      description="Этот проект сохранили в другой вкладке или окне после того, как вы его открыли. Автосохранение здесь остановлено, чтобы не затереть те изменения. Ваши правки в этой вкладке пока не потеряны."
+      title={m.title}
+      description={m.description}
       footer={
         <>
           <Button onClick={() => run('copy')} disabled={busy !== null}>
-            {busy === 'copy' ? 'Сохраняем…' : 'Сохранить мою версию как копию'}
+            {busy === 'copy' ? m.saving : m.saveCopy}
           </Button>
           <Button variant="primary" onClick={() => run('reload')} disabled={busy !== null}>
-            {busy === 'reload' ? 'Загружаем…' : 'Загрузить свежую версию'}
+            {busy === 'reload' ? m.loading : m.reload}
           </Button>
         </>
       }
     >
-      <p className="text-sm text-muted">«Загрузить свежую версию» заменит содержимое этой вкладки сохранённым. Правки, сделанные здесь после конфликта, будут отброшены.</p>
+      <p className="text-sm text-muted">{m.explanation}</p>
       {error && (
         <p role="alert" className="mt-3 text-sm font-semibold text-danger">
           {error}

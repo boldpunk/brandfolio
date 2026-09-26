@@ -1,16 +1,18 @@
 import { pdf } from '@react-pdf/renderer';
 import { createElement } from 'react';
-import { SECTION_LABELS } from '@/domain/project';
-import type { Asset, Project } from '@/domain/schema';
+import type { Asset, LogoVariantKind, Project } from '@/domain/schema';
 import { rasterizeSvg } from '@/features/assets/rasterize';
 import { buildViewModel, type BrandbookViewModel } from '@/features/brandbook/viewModel';
+import { msg } from '@/i18n/core';
+import { brandMessages } from '@/i18n/messages/brand';
+import { exportMessages } from '@/i18n/messages/export';
 import { BrandbookPdf } from '@/templates/pdf/BrandbookPdf';
 import { registerPdfFonts } from './pdfFonts';
 
 export class MissingAssetError extends Error {
   readonly missing: string[];
   constructor(missing: string[]) {
-    super(`Не найдены файлы: ${missing.join('; ')}. Загрузите их заново в редакторе.`);
+    super(msg(exportMessages).pdf.missingFiles(missing.join('; ')));
     this.name = 'MissingAssetError';
     this.missing = missing;
   }
@@ -45,14 +47,19 @@ export async function generatePdf(snapshot: Project, assets: readonly Asset[], o
   return { blob, vm, pageCount: await countPages(blob) };
 }
 
+/** Where each referenced file is used, in the interface language (for the error message). */
 function collectReferences(project: Project): { id: string; where: string }[] {
+  const brand = msg(brandMessages);
+  const text = msg(exportMessages).pdf;
   const refs: { id: string; where: string }[] = [];
   const visible = new Set(project.sections.filter((s) => s.visible).map((s) => s.kind));
   const logoUsed = visible.has('logo') || visible.has('cover') || visible.has('applications');
   if (logoUsed) {
-    for (const [kind, id] of Object.entries(project.brand.logo.variants)) if (id) refs.push({ id, where: `${SECTION_LABELS.logo}: ${kind}` });
+    for (const [kind, id] of Object.entries(project.brand.logo.variants)) {
+      if (id) refs.push({ id, where: `${brand.sections.logo}: ${brand.logoVariants[kind as LogoVariantKind] ?? kind}` });
+    }
   }
-  if (visible.has('imagery')) project.brand.imagery.images.forEach((img, i) => refs.push({ id: img.assetId, where: `${SECTION_LABELS.imagery}: изображение ${i + 1}` }));
+  if (visible.has('imagery')) project.brand.imagery.images.forEach((img, i) => refs.push({ id: img.assetId, where: `${brand.sections.imagery}: ${text.image(i + 1)}` }));
   return refs;
 }
 

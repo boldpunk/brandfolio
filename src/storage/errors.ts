@@ -1,7 +1,9 @@
+import { msg } from '@/i18n/core';
+import { validationMessages } from '@/i18n/messages/validation';
 export class RevisionConflictError extends Error {
   readonly storedRevision: number;
   constructor(storedRevision: number) {
-    super('Проект изменён в другой вкладке или окне');
+    super(msg(validationMessages).conflict);
     this.name = 'RevisionConflictError';
     this.storedRevision = storedRevision;
   }
@@ -9,7 +11,7 @@ export class RevisionConflictError extends Error {
 
 export class ProjectNotFoundError extends Error {
   constructor(id: string) {
-    super(`Проект ${id} не найден`);
+    super(msg(validationMessages).notFound(id));
     this.name = 'ProjectNotFoundError';
   }
 }
@@ -18,7 +20,7 @@ export class StorageWriteError extends Error {
   readonly quota: boolean;
   constructor(cause: unknown) {
     const quota = isQuotaError(cause);
-    super(quota ? 'На устройстве закончилось место для данных браузера' : 'Браузер не смог записать данные');
+    super(quota ? msg(validationMessages).quota : msg(validationMessages).writeFailed);
     this.name = 'StorageWriteError';
     this.quota = quota;
     this.cause = cause;

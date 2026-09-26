@@ -2,6 +2,8 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { useMessages } from '@/i18n/core';
+import { commonMessages } from '@/i18n/messages/common';
 import { IconButton } from './Button';
 
 /**
@@ -25,13 +27,14 @@ export function Dialog({
   footer?: ReactNode;
   wide?: boolean;
 }) {
+  const m = useMessages(commonMessages);
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+        <RadixDialog.Overlay className="dialog-overlay fixed inset-0 z-40 bg-ink/40" />
         <RadixDialog.Content
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg bg-panel shadow-sheet',
+            'dialog-content fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg bg-panel shadow-sheet',
             wide ? 'max-w-3xl' : 'max-w-md',
           )}
         >
@@ -45,7 +48,7 @@ export function Dialog({
               )}
             </div>
             <RadixDialog.Close asChild>
-              <IconButton label="Закрыть" size="sm">
+              <IconButton label={m.close} size="sm">
                 <X size={18} />
               </IconButton>
             </RadixDialog.Close>

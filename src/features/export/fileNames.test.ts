@@ -8,6 +8,8 @@ describe('file names', () => {
   });
   it('keeps Uzbek Latin readable', () => {
     expect(fileBaseName('O‘zbekiston Gʻijduvon')).toBe('Ozbekiston-Gijduvon');
+    // ‘ (U+2018) and ’ (U+2019) are what the app itself writes in Uzbek.
+    expect(pdfFileName('G‘ijduvon ma’lumot markazi')).toBe('Gijduvon-malumot-markazi-brandbook.pdf');
   });
   it('falls back when nothing is left', () => {
     expect(pdfFileName('★★★')).toBe('brandbook-brandbook.pdf');

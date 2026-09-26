@@ -6,8 +6,6 @@
  */
 import { contrastRatio, formatHsl, formatRatio, formatRgb, hexToRgb, readableTextOn, rgbToHsl } from '@/domain/color';
 import { FONT_FAMILIES, pxToPt, WEIGHT_LABELS } from '@/domain/fonts';
-import { COLOR_ROLE_LABELS } from '@/domain/operations';
-import { SECTION_LABELS } from '@/domain/project';
 import type {
   AssetMeta,
   BrandColor,
@@ -20,6 +18,9 @@ import type {
   TypographyRole,
   TypographyStyle,
 } from '@/domain/schema';
+import { LOCALE_TAGS, type Locale } from '@/i18n/locales';
+import { brandMessages } from '@/i18n/messages/brand';
+import { documentMessages } from '@/i18n/messages/document';
 
 export type AssetRef = { id: string; mimeType: AssetMeta['mimeType']; width: number; height: number; filename: string };
 
@@ -128,6 +129,8 @@ export type BrandbookViewModel = {
   projectId: string;
   revision: number;
   templateId: TemplateId;
+  /** Language of the document's own labels (project.language), not of the interface. */
+  language: Locale;
   documentTitle: string;
   author: string;
   tokens: Tokens;
@@ -138,14 +141,7 @@ export type BrandbookViewModel = {
   requiredAssetIds: string[];
 };
 
-const LOGO_LABELS: Record<LogoVariantKind, string> = {
-  primary: 'Основной',
-  alternative: 'Альтернативный',
-  mark: 'Знак',
-  light: 'Светлая версия',
-};
-
-const TYPE_LABELS: Record<TypographyRole, string> = { heading: 'Заголовки', body: 'Основной текст', caption: 'Подписи' };
+const LOGO_KINDS: LogoVariantKind[] = ['primary', 'alternative', 'mark', 'light'];
 
 export const TYPE_SAMPLE = {
   alphabetRu: 'Аа Бб Вв Гг Дд Ее Ёё Жж Зз Ии Йй Кк Лл Мм Нн Оо Пп Рр Сс Тт Уу Фф Хх Цц Чч Шш Щщ Ъъ Ыы Ьь Ээ Юю Яя',
@@ -180,11 +176,11 @@ function mix(a: string, b: string, amount: number): string {
   return `#${c(x.r, y.r)}${c(x.g, y.g)}${c(x.b, y.b)}`.toUpperCase();
 }
 
-function resolveType(style: TypographyStyle): ResolvedType {
+function resolveType(style: TypographyStyle, language: Locale): ResolvedType {
   const family = FONT_FAMILIES[style.familyId];
   return {
     role: style.role,
-    roleLabel: TYPE_LABELS[style.role],
+    roleLabel: brandMessages[language].typeRoles[style.role],
     familyLabel: family.label,
     cssFamily: family.cssFamily,
     weight: style.weight,
@@ -196,18 +192,24 @@ function resolveType(style: TypographyStyle): ResolvedType {
   };
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, language: Locale): string {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y!, m! - 1, d!));
+  return new Intl.DateTimeFormat(LOCALE_TAGS[language], { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y!, m! - 1, d!));
 }
 
 export function buildViewModel(project: Project, assets: ReadonlyMap<string, AssetMeta>): BrandbookViewModel {
-  const { brand } = project;
+  const { brand, language } = project;
+  const labels = brandMessages[language];
+  const doc = documentMessages[language];
   const base = resolveTokens(project);
   const tokens: Tokens = {
     ...base,
-    type: { heading: resolveType(brand.typography.heading), body: resolveType(brand.typography.body), caption: resolveType(brand.typography.caption) },
+    type: {
+      heading: resolveType(brand.typography.heading, language),
+      body: resolveType(brand.typography.body, language),
+      caption: resolveType(brand.typography.caption, language),
+    },
   };
   const colorHex = (id: string | null) => (id ? brand.colors.find((c) => c.id === id)?.hex : undefined);
   const asset = (id: string | null): AssetRef | null => {
@@ -239,7 +241,7 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
 
   for (const config of project.sections) {
     if (!config.visible) continue;
-    const title = SECTION_LABELS[config.kind];
+    const title = labels.sections[config.kind];
     const sectionNumber = config.kind === 'cover' ? 0 : ++number;
     let section: SectionVM;
     switch (config.kind) {
@@ -254,7 +256,7 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
           heading: brand.cover.title.trim() || project.title,
           subtitle: brand.cover.subtitle,
           version: brand.cover.version,
-          dateLabel: formatDate(brand.cover.date),
+          dateLabel: formatDate(brand.cover.date, language),
           author: brand.cover.author,
           logo: need(coverLogo),
           background,
@@ -267,9 +269,9 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
       case 'about': {
         const a = brand.about;
         const blocks = [
-          { label: 'Миссия', text: a.mission },
-          { label: 'Аудитория', text: a.audience },
-          { label: 'Позиционирование', text: a.positioning },
+          { label: doc.about.mission, text: a.mission },
+          { label: doc.about.audience, text: a.audience },
+          { label: doc.about.positioning, text: a.positioning },
         ].filter((b) => hasText(b.text));
         const values = a.values.filter(hasText);
         section = { kind: 'about', title, number: sectionNumber, description: a.description, blocks, values, isEmpty: !hasText(a.description) && !blocks.length && !values.length };
@@ -277,8 +279,7 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
       }
       case 'logo': {
         const l = brand.logo;
-        const list = (Object.keys(LOGO_LABELS) as LogoVariantKind[])
-          .map((kind) => ({ kind, label: LOGO_LABELS[kind], asset: need(asset(variants[kind])) }))
+        const list = LOGO_KINDS.map((kind) => ({ kind, label: labels.logoVariants[kind], asset: need(asset(variants[kind])) }))
           .filter((v): v is { kind: LogoVariantKind; label: string; asset: AssetRef } => v.asset !== null);
         section = {
           kind: 'logo',
@@ -306,7 +307,7 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
             id: c.id,
             name: c.name,
             role: c.role,
-            roleLabel: COLOR_ROLE_LABELS[c.role],
+            roleLabel: labels.colorRoles[c.role],
             hex: c.hex,
             rgb: formatRgb(rgb),
             hsl: formatHsl(rgbToHsl(rgb)),
@@ -335,10 +336,10 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
           .map((i) => ({ id: i.id, asset: need(asset(i.assetId)), caption: i.caption, focalX: i.focalX, focalY: i.focalY }))
           .filter((i): i is typeof i & { asset: AssetRef } => i.asset !== null);
         const rules = [
-          { label: 'Свет', text: im.lighting },
-          { label: 'Композиция', text: im.composition },
-          { label: 'Обработка', text: im.processing },
-          { label: 'Не используем', text: im.avoid },
+          { label: doc.imagery.lighting, text: im.lighting },
+          { label: doc.imagery.composition, text: im.composition },
+          { label: doc.imagery.processing, text: im.processing },
+          { label: doc.imagery.avoid, text: im.avoid },
         ].filter((r) => hasText(r.text));
         section = { kind: 'imagery', title, number: sectionNumber, images, rules, isEmpty: !images.length && !rules.length };
         break;
@@ -400,6 +401,7 @@ export function buildViewModel(project: Project, assets: ReadonlyMap<string, Ass
     projectId: project.id,
     revision: project.revision,
     templateId: project.templateId,
+    language,
     documentTitle: brand.cover.title.trim() || project.title,
     author: brand.cover.author.trim() || brand.contacts.organization.trim(),
     tokens,

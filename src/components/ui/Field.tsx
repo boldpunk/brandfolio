@@ -1,4 +1,6 @@
 import { useId, type ReactNode, type InputHTMLAttributes, type TextareaHTMLAttributes, type SelectHTMLAttributes } from 'react';
+import { useMessages } from '@/i18n/core';
+import { commonMessages } from '@/i18n/messages/common';
 import { cn } from '@/lib/cn';
 
 const control =
@@ -17,6 +19,7 @@ type FieldShellProps = {
 /** Label, hint, counter and error wired to the control via aria attributes. */
 export function FieldShell({ label, hint, error, count, children, className }: FieldShellProps) {
   const id = useId();
+  const m = useMessages(commonMessages);
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const countId = count ? `${id}-count` : undefined;
@@ -31,7 +34,7 @@ export function FieldShell({ label, hint, error, count, children, className }: F
         {count && (
           <span id={countId} className={cn('font-mono text-xs', over ? 'font-bold text-danger' : 'text-muted')}>
             {count.value}/{count.max}
-            <span className="sr-only"> символов</span>
+            <span className="sr-only">{m.charsSr}</span>
           </span>
         )}
       </div>

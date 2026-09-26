@@ -6,24 +6,29 @@ import { Dialog } from '@/components/ui/Dialog';
 import { FieldShell, SelectField, TextField, controlClass } from '@/components/ui/Field';
 import { checkContrast, formatHsl, formatRgb, hexToRgb, normalizeHex, rgbToHsl } from '@/domain/color';
 import { PALETTE_LIMITS } from '@/domain/limits';
-import { addColor, canAddColor, canRemoveColor, COLOR_ROLE_LABELS, colorUsages, moveColor, removeColor, updateColor } from '@/domain/operations';
+import { addColor, canAddColor, canRemoveColor, colorUsages, moveColor, removeColor, updateColor } from '@/domain/operations';
 import { COLOR_ROLES, type BrandColor, type ColorRole } from '@/domain/schema';
+import { msg, useMessages } from '@/i18n/core';
+import { brandMessages } from '@/i18n/messages/brand';
+import { inspectorMessages } from '@/i18n/messages/inspector';
 import { cn } from '@/lib/cn';
 import { useEditorStore, useProject } from '../editorStore';
 import { Group, Panel } from './fields';
 
 async function copy(text: string, notify: (m: string, tone?: 'info' | 'error') => void) {
+  const m = msg(inspectorMessages).colors;
   try {
     await navigator.clipboard.writeText(text);
-    notify(`Скопировано: ${text}`);
+    notify(m.copied(text));
   } catch {
-    notify('Браузер не разрешил доступ к буферу обмена', 'error');
+    notify(m.clipboardDenied, 'error');
   }
 }
 
 function HexInput({ color, onCommit }: { color: BrandColor; onCommit: (hex: string) => void }) {
   const [draft, setDraft] = useState(color.hex);
   const [error, setError] = useState<string | null>(null);
+  const m = useMessages(inspectorMessages).colors;
   useEffect(() => {
     setDraft(color.hex);
     setError(null);
@@ -31,7 +36,7 @@ function HexInput({ color, onCommit }: { color: BrandColor; onCommit: (hex: stri
   const commit = (value: string) => {
     const hex = normalizeHex(value);
     if (!hex) {
-      setError('Формат #RGB или #RRGGBB, например #B65C3A');
+      setError(m.hexFormat);
       return;
     }
     setError(null);
@@ -69,6 +74,9 @@ function HexInput({ color, onCommit }: { color: BrandColor; onCommit: (hex: stri
 function ColorRow({ color, index, total, onDelete }: { color: BrandColor; index: number; total: number; onDelete: () => void }) {
   const apply = useEditorStore((s) => s.apply);
   const notify = useNotify();
+  const t = useMessages(inspectorMessages);
+  const m = t.colors;
+  const roles = useMessages(brandMessages).colorRoles;
   const rgb = formatRgb(hexToRgb(color.hex));
   const hsl = formatHsl(rgbToHsl(hexToRgb(color.hex)));
   const set = (patch: Partial<Omit<BrandColor, 'id'>>, key?: string) => apply((p) => updateColor(p, color.id, patch), key);
@@ -76,19 +84,19 @@ function ColorRow({ color, index, total, onDelete }: { color: BrandColor; index:
     <li className="flex flex-col gap-3 rounded-md border border-line p-3">
       <div className="flex items-center gap-3">
         <label className="relative size-12 shrink-0 cursor-pointer overflow-hidden rounded-md border border-line-strong" style={{ background: color.hex }}>
-          <span className="sr-only">Выбрать цвет «{color.name || 'без названия'}» в палитре браузера</span>
+          <span className="sr-only">{m.pick(color.name || m.untitledLower)}</span>
           <input type="color" value={color.hex.toLowerCase()} onChange={(e) => set({ hex: e.target.value.toUpperCase() }, `color.${color.id}.picker`)} className="absolute inset-0 cursor-pointer opacity-0" />
         </label>
         <div className="min-w-0 flex-1">
-          <TextField label="Название" value={color.name} maxLength={60} onChange={(e) => set({ name: e.target.value }, `color.${color.id}.name`)} />
+          <TextField label={m.name} value={color.name} maxLength={60} onChange={(e) => set({ name: e.target.value }, `color.${color.id}.name`)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <HexInput color={color} onCommit={(hex) => set({ hex })} />
-        <SelectField label="Роль" value={color.role} onChange={(e) => set({ role: e.target.value as ColorRole })}>
+        <SelectField label={m.role} value={color.role} onChange={(e) => set({ role: e.target.value as ColorRole })}>
           {COLOR_ROLES.map((role) => (
             <option key={role} value={role}>
-              {COLOR_ROLE_LABELS[role]}
+              {roles[role]}
             </option>
           ))}
         </SelectField>
@@ -104,20 +112,20 @@ function ColorRow({ color, index, total, onDelete }: { color: BrandColor; index:
           <div key={label} className="flex items-center justify-between gap-2">
             <dt className="w-10 text-muted">{label}</dt>
             <dd className="flex-1 font-mono">{value}</dd>
-            <IconButton label={`Копировать ${label} ${value}`} size="sm" className="size-7" onClick={() => void copy(value, notify)}>
+            <IconButton label={m.copy(label, value)} size="sm" className="size-7" onClick={() => void copy(value, notify)}>
               <Copy size={14} />
             </IconButton>
           </div>
         ))}
       </dl>
       <div className="flex gap-1">
-        <IconButton label={`Выше: ${color.name || color.hex}`} size="sm" disabled={index === 0} onClick={() => apply((p) => moveColor(p, color.id, -1))}>
+        <IconButton label={t.common.moveUp(color.name || color.hex)} size="sm" disabled={index === 0} onClick={() => apply((p) => moveColor(p, color.id, -1))}>
           <ChevronUp size={16} />
         </IconButton>
-        <IconButton label={`Ниже: ${color.name || color.hex}`} size="sm" disabled={index === total - 1} onClick={() => apply((p) => moveColor(p, color.id, 1))}>
+        <IconButton label={t.common.moveDown(color.name || color.hex)} size="sm" disabled={index === total - 1} onClick={() => apply((p) => moveColor(p, color.id, 1))}>
           <ChevronDown size={16} />
         </IconButton>
-        <IconButton label={`Удалить цвет ${color.name || color.hex}`} size="sm" disabled={total <= PALETTE_LIMITS.min} onClick={onDelete} className="ml-auto">
+        <IconButton label={m.removeColor(color.name || color.hex)} size="sm" disabled={total <= PALETTE_LIMITS.min} onClick={onDelete} className="ml-auto">
           <Trash2 size={16} />
         </IconButton>
       </div>
@@ -127,6 +135,8 @@ function ColorRow({ color, index, total, onDelete }: { color: BrandColor; index:
 
 function ContrastChecker() {
   const { brand } = useProject();
+  const t = useMessages(inspectorMessages);
+  const m = t.colors;
   // Default pair: the text colour on the background colour, when roles are set.
   const [a, setA] = useState(() => (brand.colors.find((c) => c.role === 'text') ?? brand.colors[0])?.id ?? '');
   const [b, setB] = useState(() => (brand.colors.find((c) => c.role === 'background' && c.id !== a) ?? brand.colors.find((c) => c.id !== a))?.id ?? '');
@@ -137,37 +147,41 @@ function ContrastChecker() {
   const verdict = (pass: boolean) => (
     <span className={cn('inline-flex items-center gap-1 font-semibold', pass ? 'text-success' : 'text-danger')}>
       {pass ? <Check size={14} aria-hidden /> : <X size={14} aria-hidden />}
-      {pass ? 'проходит AA' : 'не проходит AA'}
+      {pass ? m.passes : m.fails}
     </span>
   );
   return (
-    <Group title="Проверка контраста" hint="Коэффициент по WCAG 2.1 для выбранной пары цветов. Это проверка одной пары, а не сертификация доступности всего бренда.">
+    <Group title={m.contrastTitle} hint={m.contrastHint}>
       <div className="grid grid-cols-2 gap-3">
         {(
           [
-            ['Цвет текста', ca, setA],
-            ['Цвет фона', cb, setB],
+            [m.textColor, ca, setA],
+            [m.backgroundColor, cb, setB],
           ] as const
         ).map(([label, value, set]) => (
           <SelectField key={label} label={label} value={value.id} onChange={(e) => set(e.target.value)}>
             {brand.colors.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name || 'Без названия'} · {c.hex}
+                {c.name || t.common.untitled} · {c.hex}
               </option>
             ))}
           </SelectField>
         ))}
       </div>
       <div className="rounded-md border border-line p-4" style={{ background: cb.hex, color: ca.hex }}>
-        <p className="text-2xl font-bold">Крупный текст</p>
-        <p className="text-sm">Обычный текст для проверки читаемости.</p>
+        <p className="text-2xl font-bold">{m.largeSample}</p>
+        <p className="text-sm">{m.bodySample}</p>
       </div>
       <div className="text-sm" aria-live="polite">
         <p>
-          Коэффициент: <span className="font-mono text-base font-bold">{result.label}</span>
+          {m.ratio} <span className="font-mono text-base font-bold">{result.label}</span>
         </p>
-        <p className="mt-1">Обычный текст (от 4.5:1): {verdict(result.normalText)}</p>
-        <p>Крупный текст, от 18 pt или 14 pt жирный (от 3:1): {verdict(result.largeText)}</p>
+        <p className="mt-1">
+          {m.normalText} {verdict(result.normalText)}
+        </p>
+        <p>
+          {m.largeText} {verdict(result.largeText)}
+        </p>
       </div>
     </Group>
   );
@@ -178,6 +192,9 @@ export function ColorsPanel() {
   const apply = useEditorStore((s) => s.apply);
   const [removing, setRemoving] = useState<BrandColor | null>(null);
   const [replacement, setReplacement] = useState<string>('');
+  const t = useMessages(inspectorMessages);
+  const m = t.colors;
+  const sections = useMessages(brandMessages).sections;
   const colors = project.brand.colors;
   const usages = removing ? colorUsages(project, removing.id) : [];
 
@@ -187,7 +204,7 @@ export function ColorsPanel() {
   };
 
   return (
-    <Panel title="Цвета" description={`От ${PALETTE_LIMITS.min} до ${PALETTE_LIMITS.max} цветов. Ввод #RGB и #RRGGBB, значения приводятся к #RRGGBB.`}>
+    <Panel title={sections.colors} description={m.description(PALETTE_LIMITS.min, PALETTE_LIMITS.max)}>
       <ol className="flex flex-col gap-3">
         {colors.map((color, index) => (
           <ColorRow key={color.id} color={color} index={index} total={colors.length} onDelete={() => startRemove(color)} />
@@ -199,18 +216,18 @@ export function ColorsPanel() {
         onClick={() => apply((p) => addColor(p, { name: '', role: 'custom', hex: '#808080' }))}
         className="self-start"
       >
-        Добавить цвет
+        {m.add}
       </Button>
-      {!canAddColor(project) && <p className="text-xs text-muted">В палитре максимальное число цветов.</p>}
+      {!canAddColor(project) && <p className="text-xs text-muted">{m.full}</p>}
       <ContrastChecker />
       <Dialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
-        title={`Удалить цвет «${removing?.name || removing?.hex}»?`}
-        description={usages.length ? `Цвет используется: ${usages.join(', ')}. Выберите замену, чтобы макеты не сломались.` : 'Цвет нигде не выбран вручную.'}
+        title={m.removeTitle(removing?.name || removing?.hex || '')}
+        description={usages.length ? m.usedIn(usages.join(', ')) : m.unused}
         footer={
           <>
-            <Button onClick={() => setRemoving(null)}>Отмена</Button>
+            <Button onClick={() => setRemoving(null)}>{m.cancel}</Button>
             <Button
               variant="danger"
               disabled={!removing || !canRemoveColor(project)}
@@ -219,21 +236,21 @@ export function ColorsPanel() {
                 setRemoving(null);
               }}
             >
-              Удалить
+              {m.remove}
             </Button>
           </>
         }
       >
         {usages.length > 0 && (
-          <SelectField label="Заменить на" value={replacement} onChange={(e) => setReplacement(e.target.value)}>
+          <SelectField label={m.replaceWith} value={replacement} onChange={(e) => setReplacement(e.target.value)}>
             {colors
               .filter((c) => c.id !== removing?.id)
               .map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name || 'Без названия'} · {c.hex}
+                  {c.name || t.common.untitled} · {c.hex}
                 </option>
               ))}
-            <option value="">Автоматически по роли</option>
+            <option value="">{m.autoByRole}</option>
           </SelectField>
         )}
       </Dialog>

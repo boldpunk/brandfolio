@@ -4,7 +4,10 @@
  */
 import { createId } from './ids';
 import { PALETTE_LIMITS } from './limits';
-import type { BrandColor, ColorRole, Project, SectionKind } from './schema';
+import { msg } from '@/i18n/core';
+import { brandMessages } from '@/i18n/messages/brand';
+import { validationMessages } from '@/i18n/messages/validation';
+import type { BrandColor, Project, SectionKind } from './schema';
 
 export function moveSection(project: Project, kind: SectionKind, direction: -1 | 1): Project {
   const sections = [...project.sections];
@@ -63,20 +66,16 @@ export function moveColor(project: Project, id: string, direction: -1 | 1): Proj
   return { ...project, brand: { ...project.brand, colors } };
 }
 
-/** Where a color is referenced, in words, for the delete dialog. */
+/** Where a color is referenced, in words (interface language), for the delete dialog. */
 export function colorUsages(project: Project, id: string): string[] {
   const { brand } = project;
+  const m = msg(validationMessages).colorUse;
+  const names = msg(brandMessages).mockups;
   const uses: string[] = [];
-  if (brand.cover.backgroundColorId === id) uses.push('фон обложки');
-  if (brand.logo.previewColorId === id) uses.push('фон логотипа');
-  const names: Record<keyof Project['brand']['mockups'], string> = {
-    businessCard: 'визитка',
-    socialPost: 'публикация',
-    websiteHero: 'сайт',
-    packagingLabel: 'этикетка',
-  };
+  if (brand.cover.backgroundColorId === id) uses.push(m.coverBackground);
+  if (brand.logo.previewColorId === id) uses.push(m.logoBackground);
   for (const [key, mockup] of Object.entries(brand.mockups) as [keyof typeof names, Project['brand']['mockups'][keyof typeof names]][]) {
-    if (Object.values(mockup.colors).includes(id)) uses.push(`макет «${names[key]}»`);
+    if (Object.values(mockup.colors).includes(id)) uses.push(m.mockup(names[key].toLowerCase()));
   }
   return uses;
 }
@@ -115,11 +114,3 @@ export function removeColor(project: Project, id: string, replacementId: string 
   };
 }
 
-export const COLOR_ROLE_LABELS: Record<ColorRole, string> = {
-  primary: 'Основной',
-  secondary: 'Дополнительный',
-  accent: 'Акцент',
-  background: 'Фон',
-  text: 'Текст',
-  custom: 'Другое',
-};

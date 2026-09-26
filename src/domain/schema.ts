@@ -14,16 +14,22 @@ import {
   TEXT_LIMITS,
   VOICE_QUALITIES,
 } from './limits';
+import { msg } from '@/i18n/core';
+import { LOCALES } from '@/i18n/locales';
+import { validationMessages } from '@/i18n/messages/validation';
 
-export const CURRENT_SCHEMA_VERSION = 1;
+/** Messages are read when a check fails, so they follow the current interface language. */
+const v = () => msg(validationMessages);
 
-export const idSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'Некорректный идентификатор');
+export const CURRENT_SCHEMA_VERSION = 2;
 
-const text = (max: number) => z.string().max(max, `Не длиннее ${max} символов`);
+export const idSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, { error: () => v().invalidId });
+
+const text = (max: number) => z.string().max(max, { error: () => v().maxChars(max) });
 const list = (maxItems: number, maxLength: number = TEXT_LIMITS.listItem) =>
-  z.array(text(maxLength)).max(maxItems, `Не больше ${maxItems} пунктов`);
+  z.array(text(maxLength)).max(maxItems, { error: () => v().maxItems(maxItems) });
 
-export const hexSchema = z.string().refine(isCanonicalHex, 'Цвет должен быть в формате #RRGGBB');
+export const hexSchema = z.string().refine(isCanonicalHex, { error: () => v().hex });
 
 /** Reference to a BrandColor.id. null means "not chosen": renderers fall back by role. */
 export const colorRefSchema = idSchema.nullable();
@@ -59,7 +65,7 @@ export const typographyStyleSchema = z
     trackingEm: z.number().min(-0.1).max(0.4),
   })
   .refine((s) => FONT_FAMILIES[s.familyId].weights.includes(s.weight), {
-    message: 'Это начертание недоступно для выбранного шрифта',
+    error: () => v().fontWeight,
     path: ['weight'],
   });
 export type TypographyStyle = z.infer<typeof typographyStyleSchema>;
@@ -207,11 +213,11 @@ export const aboutSchema = z.object({
 const safeUrl = z
   .string()
   .max(300)
-  .refine((v) => v === '' || isHttpUrl(v), 'Разрешены только ссылки http:// и https://');
+  .refine((v) => v === '' || isHttpUrl(v), { error: () => v().httpOnly });
 
 export const contactsSchema = z.object({
   organization: text(TEXT_LIMITS.short),
-  email: z.union([z.literal(''), z.email('Некорректный email').max(254)]),
+  email: z.union([z.literal(''), z.email({ error: () => v().email }).max(254)]),
   website: safeUrl,
   usageNote: text(TEXT_LIMITS.longText),
 });
@@ -222,8 +228,8 @@ export const brandIdentitySchema = z.object({
   logo: logoSchema,
   colors: z
     .array(brandColorSchema)
-    .min(PALETTE_LIMITS.min, `Нужно минимум ${PALETTE_LIMITS.min} цвета`)
-    .max(PALETTE_LIMITS.max, `Не больше ${PALETTE_LIMITS.max} цветов`),
+    .min(PALETTE_LIMITS.min, { error: () => v().minColors(PALETTE_LIMITS.min) })
+    .max(PALETTE_LIMITS.max, { error: () => v().maxColors(PALETTE_LIMITS.max) }),
   typography: z.object({
     heading: typographyStyleSchema,
     body: typographyStyleSchema,
@@ -268,9 +274,9 @@ export type SectionConfig = z.infer<typeof sectionConfigSchema>;
 export const sectionsSchema = z
   .array(sectionConfigSchema)
   .length(SECTION_KINDS.length)
-  .refine((s) => new Set(s.map((x) => x.kind)).size === SECTION_KINDS.length, 'Разделы повторяются')
-  .refine((s) => s[0]?.kind === 'cover', 'Обложка должна быть первой')
-  .refine((s) => s.some((x) => x.visible), 'Хотя бы один раздел должен быть видимым');
+  .refine((s) => new Set(s.map((x) => x.kind)).size === SECTION_KINDS.length, { error: () => v().sectionsRepeat })
+  .refine((s) => s[0]?.kind === 'cover', { error: () => v().coverFirst })
+  .refine((s) => s.some((x) => x.visible), { error: () => v().oneSectionVisible });
 
 // ---------------------------------------------------------------- project
 
@@ -282,10 +288,12 @@ export const projectSchema = z
     id: idSchema,
     schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
     revision: z.number().int().min(0),
-    title: text(TEXT_LIMITS.title).min(1, 'Введите название проекта'),
+    title: text(TEXT_LIMITS.title).min(1, { error: () => v().titleRequired }),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
     templateId: z.enum(TEMPLATE_IDS),
+    /** Language of the document's own labels (section titles, captions); the interface language is separate. */
+    language: z.enum(LOCALES),
     isDemo: z.boolean(),
     brand: brandIdentitySchema,
     sections: sectionsSchema,
@@ -362,26 +370,26 @@ export function findBrokenReferences(project: {
   const { brand } = project;
 
   if (colors.size !== brand.colors.length) {
-    issues.push({ message: 'Идентификаторы цветов повторяются', path: ['brand', 'colors'] });
+    issues.push({ message: v().colorIdsRepeat, path: ['brand', 'colors'] });
   }
   if (assets.size !== project.assetIds.length) {
-    issues.push({ message: 'Идентификаторы ассетов повторяются', path: ['assetIds'] });
+    issues.push({ message: v().assetIdsRepeat, path: ['assetIds'] });
   }
 
   for (const variant of LOGO_VARIANTS) {
     const id = brand.logo.variants[variant];
     if (id && !assets.has(id)) {
-      issues.push({ message: `Нет файла логотипа (${variant})`, path: ['brand', 'logo', 'variants', variant] });
+      issues.push({ message: v().missingLogo(variant), path: ['brand', 'logo', 'variants', variant] });
     }
   }
   brand.imagery.images.forEach((image, index) => {
     if (!assets.has(image.assetId)) {
-      issues.push({ message: 'Нет файла изображения', path: ['brand', 'imagery', 'images', index, 'assetId'] });
+      issues.push({ message: v().missingImage, path: ['brand', 'imagery', 'images', index, 'assetId'] });
     }
   });
 
   const checkColor = (id: string | null, path: (string | number)[]) => {
-    if (id && !colors.has(id)) issues.push({ message: 'Ссылка на удалённый цвет', path });
+    if (id && !colors.has(id)) issues.push({ message: v().deletedColorRef, path });
   };
   checkColor(brand.cover.backgroundColorId, ['brand', 'cover', 'backgroundColorId']);
   checkColor(brand.logo.previewColorId, ['brand', 'logo', 'previewColorId']);

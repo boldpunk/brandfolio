@@ -3,13 +3,21 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/Field';
 import type { TemplateId } from '@/domain/schema';
+import { LOCALE_NAMES, LOCALE_TAGS, LOCALES, setLocale, useLocale, useMessages } from '@/i18n/core';
+import { settingsMessages } from '@/i18n/messages/settings';
+import { cn } from '@/lib/cn';
 import { setUiSettings, useUiSettings } from '@/lib/uiSettings';
 import { TEMPLATE_INFO } from '@/templates/templateInfo';
+import { track } from '@/lib/analytics';
 
 type StorageInfo = { usage: number | null; quota: number | null; persisted: boolean | null; supported: boolean };
 
-const formatBytes = (bytes: number) =>
-  bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} ГБ` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} МБ` : `${Math.ceil(bytes / 1024)} КБ`;
+const formatBytes = (bytes: number, units: { gb: string; mb: string; kb: string }) =>
+  bytes >= 1024 ** 3
+    ? `${(bytes / 1024 ** 3).toFixed(1)} ${units.gb}`
+    : bytes >= 1024 ** 2
+      ? `${(bytes / 1024 ** 2).toFixed(1)} ${units.mb}`
+      : `${Math.ceil(bytes / 1024)} ${units.kb}`;
 
 async function readStorageInfo(): Promise<StorageInfo> {
   const storage = navigator.storage;
@@ -20,8 +28,10 @@ async function readStorageInfo(): Promise<StorageInfo> {
 
 export default function SettingsPage() {
   const settings = useUiSettings();
+  const locale = useLocale();
+  const m = useMessages(settingsMessages);
   const [info, setInfo] = useState<StorageInfo | null>(null);
-  const [persistResult, setPersistResult] = useState<string | null>(null);
+  const [persistResult, setPersistResult] = useState<'persistGranted' | 'persistDenied' | 'persistUnsupported' | null>(null);
 
   useEffect(() => {
     void readStorageInfo().then(setInfo);
@@ -30,56 +40,77 @@ export default function SettingsPage() {
   async function requestPersist() {
     try {
       const granted = await navigator.storage.persist();
-      setPersistResult(
-        granted
-          ? 'Браузер отметил данные сайта как постоянные: он не будет удалять их сам при нехватке места. Очистка данных вручную всё равно их сотрёт.'
-          : 'Браузер отклонил запрос. Это обычное решение браузера, а не ошибка. Данные сохраняются, но при нехватке места браузер может их удалить, поэтому держите резервные архивы.',
-      );
+      setPersistResult(granted ? 'persistGranted' : 'persistDenied');
       setInfo(await readStorageInfo());
     } catch {
-      setPersistResult('Этот браузер не поддерживает запрос постоянного хранения.');
+      setPersistResult('persistUnsupported');
     }
   }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Настройки</h1>
+      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{m.heading}</h1>
 
-      <section aria-labelledby="storage-h" className="mt-8 rounded-lg border border-line bg-panel p-5 sm:p-6">
+      <section aria-labelledby="lang-h" className="mt-8 rounded-lg border border-line bg-panel p-5 sm:p-6">
+        <h2 id="lang-h" className="text-lg font-bold">
+          {m.ui.language}
+        </h2>
+        <p id="lang-hint" className="mt-1 text-sm text-muted">
+          {m.ui.languageHint}
+        </p>
+        {/* Names are written in their own language so anyone can find theirs. */}
+        <div role="radiogroup" aria-labelledby="lang-h" aria-describedby="lang-hint" className="mt-4 grid gap-2 sm:grid-cols-3">
+          {LOCALES.map((l) => (
+            <label
+              key={l}
+              lang={LOCALE_TAGS[l]}
+              className={cn(
+                'flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm font-semibold',
+                locale === l ? 'border-ink bg-paper' : 'border-line-strong bg-panel',
+              )}
+            >
+              <input type="radio" name="interface-language" value={l} checked={locale === l} onChange={() => {
+                  setLocale(l);
+                  track('interface_language_changed', { to: l });
+                }} className="accent-ink" />
+              {LOCALE_NAMES[l]}
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="storage-h" className="mt-6 rounded-lg border border-line bg-panel p-5 sm:p-6">
         <h2 id="storage-h" className="text-lg font-bold">
-          Где хранятся проекты
+          {m.storage.heading}
         </h2>
         <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted">
+          <p>{m.storage.p1}</p>
           <p>
-            Brandfolio работает без учётной записи и сервера. Проекты, логотипы и изображения сохраняются в хранилище этого браузера (IndexedDB) на этом
-            устройстве. В другом браузере, на другом устройстве или в приватном окне их не будет.
-          </p>
-          <p>
-            Синхронизации нет, и сохранность не гарантирована: очистка данных сайта, удаление браузера или нехватка места могут стереть проекты. Надёжный
-            способ сохранить работу — регулярно скачивать архив проекта <span className="font-mono text-ink">.brandfolio.zip</span>. Его можно импортировать
-            обратно в любом браузере.
+            {m.storage.p2Before}
+            <span className="font-mono text-ink">.brandfolio.zip</span>
+            {m.storage.p2After}
           </p>
         </div>
         {info && (
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div className="rounded-md bg-paper p-3">
-              <dt className="text-muted">Занято данными сайта</dt>
-              <dd className="font-mono text-base">{info.usage !== null ? formatBytes(info.usage) : 'неизвестно'}</dd>
+              <dt className="text-muted">{m.storage.usage}</dt>
+              <dd className="font-mono text-base">{info.usage !== null ? formatBytes(info.usage, m.storage.units) : m.storage.unknown}</dd>
             </div>
             <div className="rounded-md bg-paper p-3">
-              <dt className="text-muted">Постоянное хранение</dt>
-              <dd className="text-base font-semibold">{info.persisted === null ? 'не поддерживается' : info.persisted ? 'включено браузером' : 'не включено'}</dd>
+              <dt className="text-muted">{m.storage.persistence}</dt>
+              <dd className="text-base font-semibold">{info.persisted === null ? m.storage.notSupported : info.persisted ? m.storage.enabled : m.storage.notEnabled}</dd>
             </div>
           </dl>
         )}
         {info?.supported && !info.persisted && (
           <div className="mt-4">
-            <Button onClick={requestPersist}>Попросить браузер не удалять данные</Button>
+            <Button onClick={requestPersist} className="h-auto! min-h-10 max-w-full py-2 text-left whitespace-normal!">{m.storage.requestPersist}</Button>
           </div>
         )}
         {persistResult && (
           <p role="status" className="mt-3 text-sm">
-            {persistResult}
+            {m.storage[persistResult]}
           </p>
         )}
       </section>
@@ -88,11 +119,11 @@ export default function SettingsPage() {
 
       <section aria-labelledby="ui-h" className="mt-6 rounded-lg border border-line bg-panel p-5 sm:p-6">
         <h2 id="ui-h" className="text-lg font-bold">
-          Интерфейс
+          {m.ui.heading}
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <SelectField
-            label="Оформление для новых проектов"
+            label={m.ui.defaultTemplate}
             value={settings.defaultTemplate}
             onChange={(e) => setUiSettings({ defaultTemplate: e.target.value as TemplateId })}
           >
@@ -105,7 +136,7 @@ export default function SettingsPage() {
         </div>
         {settings.storageNoticeDismissed && (
           <Button className="mt-4" size="sm" onClick={() => setUiSettings({ storageNoticeDismissed: false })}>
-            Снова показать подсказку о хранении
+            {m.ui.showNotice}
           </Button>
         )}
       </section>

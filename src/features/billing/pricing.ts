@@ -4,6 +4,6 @@ export const PRICES = { monthly: 79_000, yearly: 690_000 } as const;
 /**
  * Where people ask for Pro until card payments exist (a Telegram or mailto
  * link), set at build time as VITE_CONTACT_URL; without it the page says that
- * payments are coming.
+ * falls back to the owner's Telegram.
  */
-export const CONTACT_URL = (import.meta.env.VITE_CONTACT_URL as string | undefined)?.trim() || null;
+export const CONTACT_URL = (import.meta.env.VITE_CONTACT_URL as string | undefined)?.trim() || 'https://t.me/boldpunk';

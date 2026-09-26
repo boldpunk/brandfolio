@@ -222,6 +222,10 @@ export default function HomePage() {
       <footer className="flex flex-wrap justify-between gap-3 border-t border-line py-8 text-sm text-muted">
         <span>{m.footerNote}</span>
         <span>{m.footerFonts}</span>
+        <span className="w-full">
+          © {new Date().getFullYear()} Brandfolio · by{' '}
+          <a href="https://t.me/boldpunk" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink">boldpunk</a>
+        </span>
       </footer>
     </div>
   );

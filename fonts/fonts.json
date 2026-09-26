@@ -1,0 +1,92 @@
+[
+  {
+    "family": "Manrope",
+    "weight": 400,
+    "file": "Manrope-400.ttf",
+    "bytes": 66200,
+    "sha256": "1cc09082e00961512dd45ad2481bf7387a71b718a2024c9e470a9a4afcacba76",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf",
+    "sourceSha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "Manrope",
+    "weight": 600,
+    "file": "Manrope-600.ttf",
+    "bytes": 66280,
+    "sha256": "91cd6b355341bbdb0a3e5d116fe4f108bd9ea38bc186a984e20a9bf648f4cf49",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf",
+    "sourceSha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "Manrope",
+    "weight": 700,
+    "file": "Manrope-700.ttf",
+    "bytes": 66156,
+    "sha256": "f39fa070dac564520e0bb4d7e7cc93670419ace6e01394c616f9128d6d2038ac",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf",
+    "sourceSha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "NotoSans",
+    "weight": 400,
+    "file": "NotoSans-400.ttf",
+    "bytes": 160712,
+    "sha256": "1ca3f7cd27faf250b2c499f17f89cafac5411d531c00b0435b22aaebd510f7ee",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf",
+    "sourceSha256": "bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "NotoSans",
+    "weight": 600,
+    "file": "NotoSans-600.ttf",
+    "bytes": 161812,
+    "sha256": "2741e34812913c508300e67434caaa99f12a1076e4abf5391a23f6fd4d300889",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf",
+    "sourceSha256": "bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "NotoSans",
+    "weight": 700,
+    "file": "NotoSans-700.ttf",
+    "bytes": 161504,
+    "sha256": "7b024137989efeea443d8411cb771ded02bc501b368c7c4db102d0b8e22f204b",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf",
+    "sourceSha256": "bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "NotoSerif",
+    "weight": 400,
+    "file": "NotoSerif-400.ttf",
+    "bytes": 181928,
+    "sha256": "db021e05d45ca1bf2c6a23db3e1e1ac5ccfb8cab27ed3486fed57ca4f7ab8350",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notoserif/NotoSerif%5Bwdth,wght%5D.ttf",
+    "sourceSha256": "4d8e6761424656867019081a1a01336f3cb086982682698714054fc33f782713",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "NotoSerif",
+    "weight": 700,
+    "file": "NotoSerif-700.ttf",
+    "bytes": 182552,
+    "sha256": "1d2805a4a38fcd34483f9533fbbd937db978baee216fa4c2ff2109322e07b2be",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notoserif/NotoSerif%5Bwdth,wght%5D.ttf",
+    "sourceSha256": "4d8e6761424656867019081a1a01336f3cb086982682698714054fc33f782713",
+    "license": "SIL Open Font License 1.1"
+  },
+  {
+    "family": "JetBrainsMono",
+    "weight": 400,
+    "file": "JetBrainsMono-400.ttf",
+    "bytes": 75088,
+    "sha256": "0d0cdb8070f9ecc7e4a94dfdc75021c9e92278cc6660ebd30722ef2573cf9be6",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
+    "sourceSha256": "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda",
+    "license": "SIL Open Font License 1.1"
+  }
+]
